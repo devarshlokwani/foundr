@@ -25,6 +25,7 @@ export default defineConfig({
         signUp: resolve(__dirname, "client/sign-up.html"),
         dashboard: resolve(__dirname, "client/dashboard.html"),
         transactions: resolve(__dirname, "client/transactions.html"),
+        settings: resolve(__dirname, "client/settings.html"),
       },
     },
   },

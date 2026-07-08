@@ -4,6 +4,7 @@ import { getClerk, signOut } from "../auth/auth.service";
 import { apiGet, apiPatch, apiDelete } from "../../shared/lib/api";
 import type { UnifiedEntry } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
+import { loadSettings } from "../../shared/lib/settings";
 
 /**
  * <foundr-transactions>
@@ -35,6 +36,7 @@ export class FoundrTransactions extends LitElement {
       window.location.href = "/sign-in";
       return;
     }
+    await loadSettings();
     await this._load();
   }
 

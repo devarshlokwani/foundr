@@ -7,6 +7,7 @@ import "./foundr-add-entry";
 import "./foundr-insights";
 import type { FoundrInsights } from "./foundr-insights";
 import { formatMoney } from "../../shared/lib/format";
+import { loadSettings } from "../../shared/lib/settings";
 
 /**
  * <foundr-dashboard>
@@ -41,6 +42,7 @@ export class FoundrDashboard extends LitElement {
     }
 
     this.userName = clerk.user.firstName || "founder";
+    await loadSettings();
     await this._loadMetrics();
   }
 
@@ -207,6 +209,7 @@ export class FoundrDashboard extends LitElement {
         </a>
         <div class="topbar-right">
           <a class="nav-link" href="/transactions">All entries</a>
+          <a class="nav-link" href="/settings">Settings</a>
           <button class="add-btn" @click=${this._openModal}><i class="ti ti-plus" aria-hidden="true"></i>Add entry</button>
           <button class="signout" @click=${this._signOut}>Sign out</button>
         </div>
