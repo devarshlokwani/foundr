@@ -1,0 +1,26 @@
+:root {
+  /* Palette — drawn from the reference dashboard */
+  --bg: #ECEAE3;
+  --surface: #FAFAF7;
+  --surface-alt: #F2EFE8;
+  --forest: #2D4A3E;
+  --forest-deep: #1F3329;
+  --sage: #8AAF9A;
+  --sage-soft: #DDE7E0;
+  --ink: #1C1C1C;
+  --ink-soft: #6B6B66;
+  --line: #E2DFD7;
+  --danger: #D9534F;
+  --positive: #4F8A6B;
+
+  /* Type */
+  --font-display: "DM Serif Display", Georgia, serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Layout */
+  --radius-card: 24px;
+  --radius-pill: 999px;
+  --radius-input: 14px;
+  --shadow-soft: 0 18px 50px -20px rgba(31, 51, 41, 0.25);
+  --shadow-card: 0 8px 28px -12px rgba(31, 51, 41, 0.18);
+}
