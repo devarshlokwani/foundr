@@ -1,17 +1,27 @@
 import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 import "./foundr-landing";
+import "./foundr-waitlist";
+import type { FoundrWaitlist } from "./foundr-waitlist";
 
 /**
- * Landing page entry point.
- * Registers the custom element and the icon font; the landing page's
- * auth buttons navigate to the auth pages.
+ * Landing page entry point (pre-launch).
+ *
+ * Both CTAs open the waitlist modal instead of auth pages.
+ * When we launch, switch these back to /sign-up and /sign-in.
  */
 const app = document.querySelector("foundr-landing");
 
-app?.addEventListener("get-started", () => {
-  window.location.href = "/sign-up";
+// Create the waitlist modal once and append it to the page.
+const waitlist = document.createElement("foundr-waitlist") as FoundrWaitlist;
+document.body.appendChild(waitlist);
+
+function openWaitlist(): void {
+  waitlist.open = true;
+}
+
+waitlist.addEventListener("close", () => {
+  waitlist.open = false;
 });
 
-app?.addEventListener("sign-in", () => {
-  window.location.href = "/sign-in";
-});
+app?.addEventListener("get-started", openWaitlist);
+app?.addEventListener("sign-in", openWaitlist);
