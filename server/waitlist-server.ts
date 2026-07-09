@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import rateLimit from "express-rate-limit";
 import { WaitlistModel } from "./models/Waitlist.js";
 
 /**
@@ -12,6 +13,25 @@ import { WaitlistModel } from "./models/Waitlist.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind Render's proxy, trust it so rate-limiting sees real client IPs.
+app.set("trust proxy", 1);
+
+app.use(cors({ origin: process.env.WAITLIST_ORIGIN || true }));
+app.use(express.json());
+
+/**
+ * Rate limit the signup endpoint: at most 20 requests per IP per 15 min.
+ * Plenty for a real person (who submits once), but stops anyone flooding
+ * the database with junk from a single source.
+ */
+const waitlistLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 7,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again in a little while." },
+});
+
 app.use(cors({ origin: process.env.WAITLIST_ORIGIN || true }));
 app.use(express.json());
 
@@ -19,7 +39,7 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "foundr-waitlist" });
 });
 
-app.post("/api/waitlist", async (req, res) => {
+app.post("/api/waitlist", waitlistLimiter, async (req, res) => {
   const { email } = req.body;
 
   if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

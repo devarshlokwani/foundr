@@ -22,7 +22,7 @@ import {
 @customElement("foundr-landing")
 export class FoundrLanding extends LitElement {
   @property({ type: Array }) metrics: Metric[] = [
-    { label: "Burn rate", value: "₹28K", tone: "neutral" },
+    { label: "Burn rate", value: "$4.2K", tone: "neutral" },
     { label: "Runway", value: "7 months", tone: "warn" },
     { label: "ROI on your money", value: "+18%", tone: "good" },
     { label: "Gross margin", value: "62%", tone: "good" },
@@ -62,16 +62,16 @@ export class FoundrLanding extends LitElement {
     {
       name: "Starter",
       price: "Free",
-      sub: "forever",
+      sub: "at launch",
       tagline: "For founders just getting going",
       features: ["Track 1 business", "All core metrics", "Manual entry", "Up to 50 transactions/mo"],
-      cta: "Start free",
+      cta: "Join the waitlist",
       featured: false,
     },
     {
       name: "Founder",
-      price: "₹499",
-      sub: "per month",
+      price: "The full toolkit",
+      sub: "",
       tagline: "For founders ready to scale",
       features: [
         "Everything in Starter",
@@ -80,16 +80,16 @@ export class FoundrLanding extends LitElement {
         "Milestones & goals",
         "Export reports",
       ],
-      cta: "Start free trial",
+      cta: "Join the waitlist",
       featured: true,
     },
     {
       name: "Growth",
-      price: "Coming soon",
+      price: "On the roadmap",
       sub: "",
       tagline: "Auto-sync, no manual entry",
       features: ["Everything in Founder", "Shopify integration", "Auto-tracked sales", "Bank sync", "Early access list"],
-      cta: "Join waitlist",
+      cta: "Join the waitlist",
       featured: false,
     },
   ];
@@ -177,12 +177,9 @@ export class FoundrLanding extends LitElement {
     }
   }
 
-  // Auth hooks — swap bodies for Clerk.openSignUp() / openSignIn() when wired
+  // Opens the waitlist modal (both CTAs use this pre-launch).
   private _getStarted(): void {
     this.dispatchEvent(new CustomEvent("get-started", { bubbles: true, composed: true }));
-  }
-  private _signIn(): void {
-    this.dispatchEvent(new CustomEvent("sign-in", { bubbles: true, composed: true }));
   }
   private _toggleFaq(i: number): void {
     this.openFaq = this.openFaq === i ? -1 : i;
@@ -387,12 +384,11 @@ export class FoundrLanding extends LitElement {
           <div class="nav-links nav-menu">
             <a href="#how" @click=${(e: Event) => this._navClick(e, "#how")}>How it works</a>
             <a href="#features" @click=${(e: Event) => this._navClick(e, "#features")}>Features</a>
-            <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Pricing</a>
+            <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Plans</a>
             <a href="#faq" @click=${(e: Event) => this._navClick(e, "#faq")}>FAQ</a>
           </div>
           <div class="nav-actions">
-            <button class="btn-ghost" @click=${this._signIn}>Sign in</button>
-            <button class="btn-primary" @click=${this._getStarted}>Get started</button>
+            <button class="btn-primary" @click=${this._getStarted}>Join the waitlist</button>
           </div>
         </div>
       </nav>
@@ -411,10 +407,9 @@ export class FoundrLanding extends LitElement {
             margins, so you always know if it's working.
           </p>
           <div class="cta-row">
-            <button class="btn-primary lg" @click=${this._getStarted}>Start tracking free</button>
-            <button class="btn-ghost" @click=${this._signIn}>I already have an account</button>
+            <button class="btn-primary lg" @click=${this._getStarted}>Join the waitlist</button>
           </div>
-          <p class="trust">No card required · Add your first expense in under a minute</p>
+          <p class="trust">Launching soon · Be the first to know when early access opens</p>
         </div>
 
         <div class="preview" role="img" aria-label="Preview of the Foundr dashboard showing live financial metrics">
@@ -440,10 +435,9 @@ export class FoundrLanding extends LitElement {
       <section class="trustbar">
         <div class="wrap">
           <div class="trustbar-inner">
-            <span class="stat"><strong>2,400+</strong> founders tracking</span>
-            <span class="stat"><strong>₹40Cr+</strong> in spending logged</span>
-            <span class="stat"><strong>4.8/5</strong> average rating</span>
-            <span class="stat"><strong>Under 60s</strong> to first metric</span>
+            <span class="stat"><strong>Built for solo founders</strong></span>
+            <span class="stat"><strong>Self-funded</strong>, not VC-backed</span>
+            <span class="stat"><strong>Launching 2026</strong></span>
           </div>
         </div>
       </section>
@@ -517,9 +511,9 @@ export class FoundrLanding extends LitElement {
               </ul>
             </div>
             <div class="panel" aria-hidden="true">
-              <div class="panel-row"><span class="pr-label">Total invested</span><span class="pr-value">₹3,00,000</span></div>
-              <div class="panel-row"><span class="pr-label">Returned so far</span><span class="pr-value good">₹1,98,000</span></div>
-              <div class="panel-row"><span class="pr-label">Net position</span><span class="pr-value">−₹1,02,000</span></div>
+              <div class="panel-row"><span class="pr-label">Total invested</span><span class="pr-value">$45,000</span></div>
+              <div class="panel-row"><span class="pr-label">Returned so far</span><span class="pr-value good">$29,700</span></div>
+              <div class="panel-row"><span class="pr-label">Net position</span><span class="pr-value">−$15,300</span></div>
               <div class="panel-row"><span class="pr-label">Personal ROI</span><span class="pr-value good">+18% this qtr</span></div>
               <div class="panel-row"><span class="pr-label">Break-even target</span><span class="pr-value">Sep 2026</span></div>
             </div>
@@ -534,9 +528,9 @@ export class FoundrLanding extends LitElement {
       <section class="pad" id="pricing" style="background: var(--surface-alt, #F2EFE8);">
         <div class="wrap">
           <div class="sec-head">
-            <div class="sec-label">Pricing</div>
-            <h2 class="sec-title">Start free. Upgrade when you grow.</h2>
-            <p class="sec-sub">No card to begin. Cancel anytime. Built to be affordable for a founder funding it themselves.</p>
+            <div class="sec-label">Plans</div>
+            <h2 class="sec-title">What you'll get at launch.</h2>
+            <p class="sec-sub">Foundr is in the works. Here's what each plan will include, join the waitlist to get early access.</p>
           </div>
           <div class="plans">
             ${this.plans.map(
@@ -551,7 +545,7 @@ export class FoundrLanding extends LitElement {
                   </div>
                   <ul class="plan-features">
                     ${p.features.map(
-                      (f:string) => html`<li><span class="tick"><i class="ti ti-check" aria-hidden="true"></i></span>${f}</li>`
+                      (f: string) => html`<li><span class="tick"><i class="ti ti-check" aria-hidden="true"></i></span>${f}</li>`
                     )}
                   </ul>
                   <button class="${p.featured ? "btn-primary" : "btn-outline"}" @click=${this._getStarted}>${p.cta}</button>
@@ -600,8 +594,8 @@ export class FoundrLanding extends LitElement {
           <div class="final">
             <h2>Your business deserves to be understood.</h2>
             <p>Stop guessing on paper. Start seeing your numbers clearly today.</p>
-            <button class="btn-light" @click=${this._getStarted}>Start tracking free</button>
-            <p class="fineprint">No card required · Set up in under a minute</p>
+            <button class="btn-light" @click=${this._getStarted}>Join the waitlist</button>
+            <p class="fineprint">Be first in line when early access opens</p>
           </div>
         </div>
       </section>
@@ -622,19 +616,12 @@ export class FoundrLanding extends LitElement {
                 <h4>Product</h4>
                 <a href="#how" @click=${(e: Event) => this._navClick(e, "#how")}>How it works</a>
                 <a href="#features" @click=${(e: Event) => this._navClick(e, "#features")}>Features</a>
-                <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Pricing</a>
+                <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Plans</a>
               </div>
               <div class="footer-col">
-                <h4>Company</h4>
-                <a href="#">About</a>
-                <a href="#">Blog</a>
-                <a href="#">Contact</a>
-              </div>
-              <div class="footer-col">
-                <h4>Legal</h4>
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
-                <a href="#">Security</a>
+                <h4>Get in touch</h4>
+                <a href="#" @click=${(e: Event) => { e.preventDefault(); this._getStarted(); }}>Join the waitlist</a>
+                <a href="#" @click=${(e: Event) => { e.preventDefault(); this._getStarted(); }}>Contact</a>
               </div>
             </div>
           </div>
