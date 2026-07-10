@@ -1,6 +1,7 @@
 import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 import "./foundr-landing";
 import "./foundr-waitlist";
+import "./foundr-loader";
 import type { FoundrWaitlist } from "./foundr-waitlist";
 
 /**
@@ -14,6 +15,7 @@ const app = document.querySelector("foundr-landing");
 // Create the waitlist modal once and append it to the page.
 const waitlist = document.createElement("foundr-waitlist") as FoundrWaitlist;
 document.body.appendChild(waitlist);
+document.body.appendChild(document.createElement("foundr-loader"));
 
 function openWaitlist(): void {
   waitlist.open = true;

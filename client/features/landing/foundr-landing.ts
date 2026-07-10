@@ -227,7 +227,8 @@ export class FoundrLanding extends LitElement {
     button:active { transform: scale(0.97); }
     a { color: inherit; text-decoration: none; }
     .btn-primary { background: var(--forest, #2D4A3E); color: #fff; padding: 12px 22px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
-    .btn-primary:hover { background: var(--forest-deep, #1F3329); box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
+    .btn-primary:hover { background: var(--forest-deep, #1F3329); box-shadow: 0 10px 22px -8px rgba(31,51,41,0.45); transform: translateY(-2px); }
+    .btn-primary:active { transform: translateY(0) scale(0.98); box-shadow: 0 4px 10px -6px rgba(31,51,41,0.4); }
     .btn-primary.lg { padding: 15px 28px; font-size: 15px; }
     .btn-ghost { background: transparent; color: var(--ink, #1C1C1C); padding: 11px 18px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
     .btn-ghost:hover { background: rgba(45,74,62,0.07); }
@@ -237,8 +238,14 @@ export class FoundrLanding extends LitElement {
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }
     .brand .mark { width: 30px; height: 30px; border-radius: 9px; background: var(--forest, #2D4A3E); display: grid; place-items: center; color: #fff; font-family: var(--font-display, serif); font-size: 17px; }
     .nav-links { display: flex; align-items: center; gap: 28px; }
-    .nav-links a { font-size: 14px; color: var(--ink-soft, #6B6B66); }
+    .nav-links a { font-size: 14px; color: var(--ink-soft, #6B6B66); position: relative; transition: color 0.2s ease; }
+    .nav-links a::after {
+      content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 100%;
+      background: var(--forest, #2D4A3E); border-radius: 2px;
+      transform: scaleX(0); transform-origin: right; transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
     .nav-links a:hover { color: var(--ink, #1C1C1C); }
+    .nav-links a:hover::after { transform: scaleX(1); transform-origin: left; }
     .nav-actions { display: flex; align-items: center; gap: 10px; }
     @media (max-width: 760px) { .nav-menu { display: none; } }
 
@@ -339,7 +346,8 @@ export class FoundrLanding extends LitElement {
     .final h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; margin: 0 0 16px; }
     .final p { font-size: 18px; color: rgba(255,255,255,0.78); margin: 0 0 32px; max-width: 460px; margin-left: auto; margin-right: auto; }
     .btn-light { background: #fff; color: var(--forest, #2D4A3E); padding: 15px 30px; border-radius: var(--radius-pill, 999px); font-size: 15px; font-weight: 600; }
-    .btn-light:hover { background: #F2EFE8; }
+    .btn-light:hover { background: #F2EFE8; box-shadow: 0 10px 22px -8px rgba(0,0,0,0.25); transform: translateY(-2px); }
+    .btn-light:active { transform: translateY(0) scale(0.98); }
     .final .fineprint { margin-top: 18px; font-size: 13px; color: rgba(255,255,255,0.6); }
 
     .footer { border-top: 0.5px solid var(--line, #E2DFD7); padding: 48px 0 40px; }
