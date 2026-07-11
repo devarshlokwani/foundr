@@ -1,42 +1,63 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement } from "lit/decorators.js";
+import gsap from "gsap";
 
-/**
- * <foundr-loader>
- * Entry animation. A rotated rounded-square shows its green outline; green
- * liquid rises to fill it with a sloshing wavy surface, revealing a white F.
- * When full, the box straightens (locks into place) and a little sweat-drop
- * flies off, then the overlay fades to reveal the site.
- *
- * Self-contained: plays once, REMOVES ITSELF from the DOM (so it can never
- * block clicks afterwards), respects reduced-motion.
- */
 @customElement("foundr-loader")
 export class FoundrLoader extends LitElement {
-  @state() private leaving = false;
-  @state() private gone = false;
-  @state() private straighten = false;
-
-  connectedCallback(): void {
-    super.connectedCallback();
+  firstUpdated(): void {
+    const root = this.shadowRoot!;
+    const el = (s: string) => root.querySelector(s) as Element;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-    if (reduce) {
-      window.setTimeout(() => { this.leaving = true; }, 200);
-      window.setTimeout(() => { this._finish(); }, 850);
+    const finish = () => {
+      this.dispatchEvent(new CustomEvent("loader-done", { bubbles: true, composed: true }));
+      this.remove();
+    };
+    
+    const dropSVG =
+      '<svg viewBox="0 0 9 13"><path d="M4.5 0 C4.5 0 0 6 0 8.7 a4.5 4.5 0 0 0 9 0 C9 6 4.5 0 4.5 0 z" fill="var(--forest, #2D4A3E)"/></svg>';
+    const drops = [
+      { sx: 56, sy: -14, ex: 88, ey: -34 },
+      { sx: 52, sy: 40, ex: 80, ey: 70 },
+      { sx: -52, sy: 40, ex: -80, ey: 70 },
+      { sx: -56, sy: -14, ex: -88, ey: -34 },
+    ];
+    const launch = () => {
+      const boxrot = el("#boxrot") as HTMLElement;
+      drops.forEach((d, i) => {
+        const dEl = document.createElement("div");
+        dEl.className = "drop";
+        dEl.innerHTML = dropSVG;
+        boxrot.appendChild(dEl);
+        const peakY = Math.min(d.sy, d.ey) - 24;
+        gsap.timeline({ delay: i * 0.06 })
+          .set(dEl, { x: d.sx, y: d.sy, opacity: 1, scale: 0.5, rotation: gsap.utils.random(-25, 25) })
+          .to(dEl, { x: (d.sx + d.ex) / 2, y: peakY, scale: 1, duration: 0.28, ease: "power2.out" })
+          .to(dEl, { x: d.ex, y: d.ey, duration: 0.34, ease: "power1.in" })
+          .to(dEl, { opacity: 0, duration: 0.18 }, "-=0.18");
+      });
+    };
+
+     if (reduce) {
+      gsap.set([el("#waterY"), el("#waterY2")], { y: -14 });
+      gsap.set(el("#boxrot"), { rotation: 0 });
+      gsap.set([el("#waterRotG"), el("#waterRotG2")], { rotation: 0, svgOrigin: "32 32" });
+      gsap.set(el("#name"), { opacity: 1 });
+      gsap.to(el(".overlay"), { opacity: 0, duration: 0.5, delay: 0.5, onComplete: finish });
       return;
     }
 
-    // Fill runs ~1.9s, then straighten + sweat-drop, then fade out.
-    window.setTimeout(() => { this.straighten = true; }, 1950);
-    window.setTimeout(() => { this.leaving = true; }, 2600);
-    window.setTimeout(() => { this._finish(); }, 3250);
-  }
+    gsap.to([el("#surfA"), el("#surfA2")], { x: -24, duration: 1.1, repeat: -1, yoyo: true, ease: "sine.inOut" });
+    gsap.to(el("#surfB"), { x: 24, duration: 0.85, repeat: -1, yoyo: true, ease: "sine.inOut" });
 
-  private _finish(): void {
-    this.gone = true;
-    this.dispatchEvent(new CustomEvent("loader-done", { bubbles: true, composed: true }));
-    this.remove(); // physically remove so nothing intercepts clicks
+    const tl = gsap.timeline({ onComplete: finish });
+    tl.fromTo([el("#waterY"), el("#waterY2")], { y: 70 }, { y: -14, duration: 1.9, ease: "power1.inOut" }, 0);
+    tl.to(el("#name"), { opacity: 1, y: 0, duration: 0.5 }, 1.0);
+    tl.to(el("#boxrot"), { rotation: 0, duration: 0.6, ease: "back.out(1.7)" }, 1.95);
+    tl.to(el("#waterRotG"), { rotation: 0, duration: 0.6, ease: "back.out(1.7)", svgOrigin: "32 32" }, 1.95);
+    tl.to(el("#waterRotG2"), { rotation: 0, duration: 0.6, ease: "back.out(1.7)", svgOrigin: "32 32" }, 1.95);
+    tl.call(launch, undefined, 2.1);
+    tl.to(el(".overlay"), { opacity: 0, duration: 0.55, ease: "power1.inOut" }, 3.0);
   }
 
   static styles = css`
@@ -44,126 +65,58 @@ export class FoundrLoader extends LitElement {
     .overlay {
       position: fixed; inset: 0; background: var(--bg, #ECEAE3);
       display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.6s ease, visibility 0.6s ease;
     }
-    .overlay.leaving { opacity: 0; visibility: hidden; pointer-events: none; }
-    .overlay.gone { display: none; }
-
-    .logo-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-
-    /* Box starts tilted, straightens (with a tiny overshoot) when full. */
-    .box { width: 92px; height: 92px; transform: rotate(-12deg); transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
-    .box.straight { transform: rotate(0deg); }
-    svg { width: 100%; height: 100%; overflow: visible; }
-
-    .brand-name {
-      font-family: var(--font-display, serif); font-size: 22px; color: var(--forest, #2D4A3E);
-      opacity: 0; animation: fadeUp 0.6s ease 1s forwards;
-    }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* The whole liquid body rises from below to fill the box. */
-    .wave { animation: rise 1.9s cubic-bezier(0.33, 0, 0.2, 1) forwards; }
-    @keyframes rise {
-      0%   { transform: translateY(72px); }
-      100% { transform: translateY(-8px); }
-    }
-
-    /* Two surface waves scroll sideways at different speeds so the top
-       edge undulates like a sloshing liquid surface. They fade/flatten
-       near the end as the liquid "settles". */
-    .surface1 { animation: slosh1 1.15s linear infinite; }
-    .surface2 { animation: slosh2 0.85s linear infinite; }
-    @keyframes slosh1 {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-40px); }
-    }
-    @keyframes slosh2 {
-      from { transform: translateX(0); }
-      to   { transform: translateX(40px); }
-    }
-    /* Settle: once straightening, calm the surface. */
-    .box.straight .surface1, .box.straight .surface2 { animation-play-state: paused; }
-
-    /* Sweat drop: hidden until the box locks, then arcs up-and-off. */
-    .drop {
-      position: absolute; top: -4px; right: 6px; width: 10px; height: 14px;
-      opacity: 0;
-    }
-    .box.straight .drop { animation: sweat 0.7s ease-out 0.15s forwards; }
-    @keyframes sweat {
-      0%   { opacity: 0; transform: translate(0, 6px) scale(0.6); }
-      25%  { opacity: 1; transform: translate(3px, -10px) scale(1); }
-      100% { opacity: 0; transform: translate(12px, 20px) scale(0.9); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .wave, .surface1, .surface2 { animation: none; transform: translateY(-8px); }
-      .box { transform: rotate(0deg); }
-      .brand-name { animation: none; opacity: 1; }
-      .drop { display: none; }
-    }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; position: relative; }
+    .stage { width: 104px; height: 104px; position: relative; display: flex; align-items: center; justify-content: center; }
+    .boxrot { width: 100%; height: 100%; position: relative; transform: rotate(-12deg); }
+    svg.logo { width: 100%; height: 100%; overflow: visible; display: block; }
+    .drop { position: absolute; top: 50%; left: 50%; width: 9px; height: 13px; opacity: 0; pointer-events: none; }
+    .name { font-family: var(--font-display, serif); font-size: 22px; color: var(--forest, #2D4A3E); opacity: 0; text-align: center; width: 100%; }
   `;
 
   render(): TemplateResult {
-    if (this.gone) return html``;
-
     return html`
-      <div class="overlay ${this.leaving ? "leaving" : ""}">
-        <div class="logo-wrap">
-          <div class="box ${this.straighten ? "straight" : ""}">
-            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <clipPath id="boxClip">
-                  <rect x="2" y="2" width="60" height="60" rx="16" />
-                </clipPath>
-                <clipPath id="fClip">
-                  <path d="M25 18 h18 v6 h-12 v7 h10 v6 h-10 v11 h-6 z" />
-                </clipPath>
-              </defs>
+      <div class="overlay">
+        <div class="wrap">
+          <div class="stage">
+            <div class="boxrot" id="boxrot">
+              <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <clipPath id="boxClip"><rect x="2" y="2" width="60" height="60" rx="16" /></clipPath>
+                  <clipPath id="fClip"><path d="M25 17 h18 v6 h-12 v7 h10 v6 h-10 v12 h-6 z" /></clipPath>
+                </defs>
 
-              <!-- Always-visible green outline -->
-              <rect x="2" y="2" width="60" height="60" rx="16"
-                fill="none" stroke="var(--forest, #2D4A3E)" stroke-width="3" />
+                <rect x="2" y="2" width="60" height="60" rx="16" fill="none" stroke="var(--forest, #2D4A3E)" stroke-width="3" />
+                <path d="M25 17 h18 v6 h-12 v7 h10 v6 h-10 v12 h-6 z" fill="var(--sage-soft, #DDE7E0)" opacity="0.5" />
 
-              <!-- Faint F before the liquid arrives -->
-              <path d="M25 18 h18 v6 h-12 v7 h10 v6 h-10 v11 h-6 z"
-                fill="var(--sage-soft, #DDE7E0)" opacity="0.55" />
-
-              <!-- Rising liquid with a wavy surface, clipped to the box -->
-              <g clip-path="url(#boxClip)">
-                <g class="wave">
-                  <!-- body -->
-                  <rect x="-30" y="6" width="130" height="90" fill="var(--forest, #2D4A3E)" />
-                  <!-- surface wave 1 (a wide, low sine made of overlapping arcs) -->
-                  <path class="surface1" d="M-30 6 q10 -6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 v10 h-140 z"
-                    fill="var(--forest, #2D4A3E)" />
-                  <!-- surface wave 2, lighter, offset -->
-                  <path class="surface2" d="M-30 7 q10 6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 v10 h-140 z"
-                    fill="var(--forest-deep, #1F3329)" opacity="0.45" />
-                </g>
-              </g>
-
-              <!-- White F, revealed only where the liquid currently is -->
-              <g clip-path="url(#fClip)">
                 <g clip-path="url(#boxClip)">
-                  <g class="wave">
-                    <rect x="-30" y="6" width="130" height="90" fill="#FAFAF7" />
-                    <path class="surface1" d="M-30 6 q10 -6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 v10 h-140 z" fill="#FAFAF7" />
+                  <g id="waterRotG" transform="rotate(12 32 32)">
+                    <g id="waterY">
+                      <rect x="-40" y="20" width="150" height="120" fill="var(--forest, #2D4A3E)" />
+                      <path id="surfA" d="M-40 20 q12 -5 24 0 t24 0 t24 0 t24 0 t24 0 t24 0 v8 h-168 z" fill="var(--forest, #2D4A3E)" />
+                      <path id="surfB" d="M-40 21 q12 5 24 0 t24 0 t24 0 t24 0 t24 0 t24 0 v8 h-168 z" fill="var(--forest-deep, #1F3329)" opacity="0.4" />
+                    </g>
                   </g>
                 </g>
-              </g>
-            </svg>
 
-            <!-- Cartoon sweat drop -->
-            <svg class="drop" viewBox="0 0 10 14" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 0 C5 0 0 7 0 10 a5 5 0 0 0 10 0 C10 7 5 0 5 0 z" fill="var(--sage, #8AAF9A)" opacity="0.9" />
-            </svg>
+                <g clip-path="url(#fClip)">
+                  <g clip-path="url(#boxClip)">
+                    <g id="waterRotG2" transform="rotate(12 32 32)">
+                      <g id="waterY2">
+                        <rect x="-40" y="20" width="150" height="120" fill="var(--surface, #FAFAF7)" />
+                        <path id="surfA2" d="M-40 20 q12 -5 24 0 t24 0 t24 0 t24 0 t24 0 t24 0 v8 h-168 z" fill="var(--surface, #FAFAF7)" />
+                      </g>
+                    </g>
+                  </g>
+                </g>
+              </svg>
+
+              <svg class="drop" id="drop" viewBox="0 0 11 15" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.5 0 C5.5 0 0 7.5 0 10.5 a5.5 5.5 0 0 0 11 0 C11 7.5 5.5 0 5.5 0 z" fill="var(--sage, #8AAF9A)" />
+              </svg>
+            </div>
           </div>
-          <div class="brand-name">Foundr</div>
+          <div class="name" id="name">Foundr</div>
         </div>
       </div>
     `;

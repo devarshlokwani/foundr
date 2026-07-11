@@ -226,9 +226,20 @@ export class FoundrLanding extends LitElement {
     button { font-family: inherit; cursor: pointer; border: none; transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease; }
     button:active { transform: scale(0.97); }
     a { color: inherit; text-decoration: none; }
-    .btn-primary { background: var(--forest, #2D4A3E); color: #fff; padding: 12px 22px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
-    .btn-primary:hover { background: var(--forest-deep, #1F3329); box-shadow: 0 10px 22px -8px rgba(31,51,41,0.45); transform: translateY(-2px); }
-    .btn-primary:active { transform: translateY(0) scale(0.98); box-shadow: 0 4px 10px -6px rgba(31,51,41,0.4); }
+    .btn-primary {
+      background: var(--forest, #2D4A3E); color: #fff; padding: 12px 22px;
+      border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    }
+    .btn-primary:hover {
+      background: var(--forest-deep, #1F3329);
+      transform: translate(-5px, -5px);
+      box-shadow: 5px 5px 0 var(--sage, #8AAF9A);
+    }
+    .btn-primary:active {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--forest-deep, #1F3329);
+    }
     .btn-primary.lg { padding: 15px 28px; font-size: 15px; }
     .btn-ghost { background: transparent; color: var(--ink, #1C1C1C); padding: 11px 18px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
     .btn-ghost:hover { background: rgba(45,74,62,0.07); }
@@ -345,9 +356,20 @@ export class FoundrLanding extends LitElement {
     .final { background: var(--forest, #2D4A3E); border-radius: var(--radius-card, 24px); padding: 64px 40px; text-align: center; color: #fff; margin: 40px 0; }
     .final h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: clamp(30px, 4vw, 44px); line-height: 1.1; margin: 0 0 16px; }
     .final p { font-size: 18px; color: rgba(255,255,255,0.78); margin: 0 0 32px; max-width: 460px; margin-left: auto; margin-right: auto; }
-    .btn-light { background: #fff; color: var(--forest, #2D4A3E); padding: 15px 30px; border-radius: var(--radius-pill, 999px); font-size: 15px; font-weight: 600; }
-    .btn-light:hover { background: #F2EFE8; box-shadow: 0 10px 22px -8px rgba(0,0,0,0.25); transform: translateY(-2px); }
-    .btn-light:active { transform: translateY(0) scale(0.98); }
+    .btn-light {
+      background: #fff; color: var(--forest, #2D4A3E); padding: 15px 30px;
+      border-radius: var(--radius-pill, 999px); font-size: 15px; font-weight: 600;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    }
+    .btn-light:hover {
+      background: #F2EFE8;
+      transform: translate(-5px, -5px);
+      box-shadow: 5px 5px 0 var(--sage, #8AAF9A);
+    }
+    .btn-light:active {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--forest, #2D4A3E);
+    }
     .final .fineprint { margin-top: 18px; font-size: 13px; color: rgba(255,255,255,0.6); }
 
     .footer { border-top: 0.5px solid var(--line, #E2DFD7); padding: 48px 0 40px; }
