@@ -1,6 +1,7 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { Metric, Step, Feature, Plan, Faq } from "../../shared/lib/types";
 import {
   initSmoothScroll,
@@ -9,6 +10,7 @@ import {
   teardownAnimations,
 } from "../../shared/lib/animations";
 
+gsap.registerPlugin(ScrollTrigger);
 /**
  * <foundr-landing>
  * Full marketing landing page for Foundr.
@@ -54,7 +56,7 @@ export class FoundrLanding extends LitElement {
     { icon: "ti-clock", title: "Runway", body: "Know how many months of cash you have left at your current pace." },
     { icon: "ti-trending-up", title: "Personal ROI", body: "Track the money you put in and whether it's coming back." },
     { icon: "ti-percentage", title: "Margins & EBITDA", body: "Business metrics made plain, no finance degree required." },
-    { icon: "ti-category", title: "Spending by category", body: "See where every rupee goes, grouped automatically." },
+    { icon: "ti-category", title: "Spending by category", body: "See where every dollar goes, grouped automatically." },
     { icon: "ti-flag", title: "Milestones", body: "Set targets like 'break even' and watch your progress." },
   ];
 
@@ -141,14 +143,93 @@ export class FoundrLanding extends LitElement {
     initSmoothScroll();
 
     revealOnScroll(this.renderRoot, ".step");
-    revealOnScroll(this.renderRoot, ".feature");
-    revealOnScroll(this.renderRoot, ".plan");
+    revealOnScroll(this.renderRoot, ".feat-card");
     revealOnScroll(this.renderRoot, ".sec-head");
     revealOnScroll(this.renderRoot, ".split > div");
+    this._initPricingCollage();
 
     this._setupButtonHovers();
+
+    if (window.innerWidth <= 760) {
+      ScrollTrigger.refresh();
+      return;
+    }
+    const root = this.shadowRoot!;
+    const cards = Array.from(root.querySelectorAll(".feat-card")) as HTMLElement[];
+    cards.forEach((c, i) => gsap.set(c, { x: i * 10, y: i * 6, zIndex: cards.length - i, scale: 1 - i * 0.03 }));
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: root.querySelector(".feat-pin"),
+        start: "top top",
+        end: "+=" + cards.length * 400,
+        pin: true,
+        pinType: "transform",
+        scrub: 0.6,
+      },
+    });
+    cards.forEach((c, i) => {
+      if (i === cards.length - 1) return;
+      tl.to(c, { xPercent: 120, rotation: 8, opacity: 0, duration: 1, ease: "power1.inOut" });
+      cards.slice(i + 1).forEach((b, j) => {
+        tl.to(b, { x: j * 10, y: j * 6, scale: 1 - j * 0.03, duration: 1, ease: "power1.inOut" }, "<");
+      });
+    });
+
+    // Recalculate all trigger positions after the pinned deck reserves scroll space.
+    ScrollTrigger.refresh();
   }
 
+  private _initPricingCollage() {
+    const root = this.shadowRoot;
+    if (!root) return;
+    if (window.innerWidth < 881) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const group = root.querySelector(".plans") as HTMLElement | null;
+    const section = root.querySelector("#pricing") as HTMLElement | null;
+    if (!group || !section) return;
+
+    const cards = Array.from(root.querySelectorAll(".plans .plan")) as HTMLElement[];
+    if (cards.length < 3) return;
+
+    group.classList.add("collage-ready");
+
+    // Distance between grid slots (measured live so it scales with layout).
+    const slot = cards[1].offsetLeft - cards[0].offsetLeft;
+
+    // Collage: side cards pulled inward + behind the upright center card.
+    const collage = [
+      { x: slot - 40, y: 30, rot: -9, z: 1 },
+      { x: 0, y: 0, rot: 0, z: 3 },
+      { x: -slot + 40, y: 30, rot: 9, z: 2 },
+    ];
+    cards.forEach((card, i) => {
+      const c = collage[i] ?? { x: 0, y: 0, rot: 0, z: 1 };
+      gsap.set(card, { x: c.x, y: c.y, rotation: c.rot, zIndex: c.z, transformOrigin: "center center" });
+    });
+
+    // Play the spread once the section scrolls into view. IntersectionObserver
+    // reads the real rendered position, so it works regardless of Lenis/scroll.
+    let played = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !played) {
+            played = true;
+            gsap.to(cards, {
+              x: 0, y: 0, rotation: 0,
+              ease: "power3.out", duration: 0.9, stagger: 0.06,
+              onComplete: () => group.classList.add("spread"),
+            });
+            io.disconnect();
+          }
+        });
+      },
+      { threshold: 0.35 } // fire when ~35% of the pricing section is visible
+    );
+    io.observe(section);
+  }
+  
   // GSAP-driven hover lift on every pill button (smoother than CSS alone)
   private _setupButtonHovers(): void {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -372,6 +453,30 @@ export class FoundrLanding extends LitElement {
     }
     .final .fineprint { margin-top: 18px; font-size: 13px; color: rgba(255,255,255,0.6); }
 
+    .feat-pin { padding: 60px 20px; display: flex; flex-direction: column; align-items: center; background: var(--surface-alt, #F2EFE8); }
+    .deck { position: relative; width: 340px; height: 400px; }
+    .feat-card {
+      position: absolute; inset: 0; background: var(--surface, #FAFAF7);
+      border: 1px solid var(--line, #E2DFD7); border-radius: 24px; padding: 34px;
+      box-shadow: 0 20px 50px -20px rgba(31,51,41,0.25);
+      display: flex; flex-direction: column; justify-content: center; gap: 14px;
+    }
+    .feat-ic { width: 52px; height: 52px; border-radius: 14px; background: var(--forest, #2D4A3E); color: #fff; display: grid; place-items: center; font-size: 22px; }
+    .feat-ic .ti { font-family: "tabler-icons" !important; font-style: normal; font-weight: normal; line-height: 1; }
+    .feat-ic .ti-flame:before { content: "\\ec2c"; }
+    .feat-ic .ti-clock:before { content: "\\ea70"; }
+    .feat-ic .ti-trending-up:before { content: "\\eb43"; }
+    .feat-ic .ti-percentage:before { content: "\\ecf4"; }
+    .feat-ic .ti-category:before { content: "\\f1f6"; }
+    .feat-ic .ti-flag:before { content: "\\eaa6"; }
+    .feat-card h3 { font-family: var(--font-display, serif); font-weight: 400; font-size: 26px; color: var(--ink, #1C1C1C); }
+    .feat-card p { font-size: 16px; color: var(--ink-soft, #6B6B66); line-height: 1.5; }
+    .feat-count { position: absolute; top: 22px; right: 26px; font-size: 13px; color: var(--ink-soft, #6B6B66); }
+    @media (max-width: 760px) {
+      .deck { position: static; width: 100%; height: auto; display: flex; flex-direction: column; gap: 16px; }
+      .feat-card { position: static; }
+    }
+
     .footer { border-top: 0.5px solid var(--line, #E2DFD7); padding: 48px 0 40px; }
     .footer-inner { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
     .footer-brand { max-width: 280px; }
@@ -382,6 +487,15 @@ export class FoundrLanding extends LitElement {
     .footer-col a:hover { color: var(--ink, #1C1C1C); }
     .footer-bottom { max-width: 1180px; margin: 36px auto 0; padding: 20px 32px 0; border-top: 0.5px solid var(--line, #E2DFD7); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--ink-soft, #6B6B66); }
 
+    /* --- Pricing collage (desktop only). Grid layout is untouched; GSAP
+       does the collage purely with transforms, so cards keep their real
+       slots and this degrades gracefully if JS doesn't run. --- */
+    @media (min-width: 881px) {
+      .plans.collage-ready { overflow: visible; }
+      .plans.collage-ready .plan { will-change: transform; }
+      .plans.collage-ready:not(.spread) .plan button { pointer-events: none; }
+    }
+
     @media (max-width: 880px) {
       .hero { grid-template-columns: 1fr; gap: 40px; padding: 40px 0 56px; }
       .preview { order: -1; }
@@ -389,8 +503,11 @@ export class FoundrLanding extends LitElement {
       .split { grid-template-columns: 1fr; gap: 32px; }
       .plan.featured { order: -1; }
     }
+
     @media (prefers-reduced-motion: reduce) {
       button, .metric, .faq-q i, .faq-a { transition: none; }
+      /* --- ADD THIS LINE inside your existing reduced-motion block --- */
+      .plans .plan { transform: none !important; }
     }
   `;
 
@@ -502,24 +619,23 @@ export class FoundrLanding extends LitElement {
 
   private _renderFeatures(): TemplateResult {
     return html`
-      <section class="pad" id="features" style="background: var(--surface-alt, #F2EFE8);">
-        <div class="wrap">
-          <div class="sec-head">
-            <div class="sec-label">Features</div>
-            <h2 class="sec-title">Every number a founder needs</h2>
-            <p class="sec-sub">The metrics that tell you whether your business is healthy, calculated for you, explained in plain words.</p>
-          </div>
-          <div class="features">
-            ${this.features.map(
-              (f) => html`
-                <div class="feature">
-                  <div class="feature-icon"><i class="ti ${f.icon}" aria-hidden="true"></i></div>
-                  <h3>${f.title}</h3>
-                  <p>${f.body}</p>
-                </div>
-              `
-            )}
-          </div>
+     <section class="feat-pin" id="features">
+        <div class="sec-head" style="text-align:center;margin-bottom:32px;">
+          <div class="sec-label">Features</div>
+          <h2 class="sec-title">Every number a founder needs</h2>
+          <p class="sec-sub">The metrics that tell you whether your business is healthy, calculated for you, explained in plain words.</p>
+        </div>
+        <div class="deck" id="featDeck">
+          ${this.features.map(
+            (f, i) => html`
+              <div class="feat-card">
+                <div class="feat-ic"><i class="ti ${f.icon}" aria-hidden="true"></i></div>
+                <h3>${f.title}</h3>
+                <p>${f.body}</p>
+                <span class="feat-count">${i + 1} / ${this.features.length}</span>
+              </div>
+            `
+          )}
         </div>
       </section>
     `;
