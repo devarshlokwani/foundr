@@ -20,7 +20,7 @@ app.use(cors({ origin: process.env.WAITLIST_ORIGIN || true }));
 app.use(express.json());
 
 /**
- * Rate limit the signup endpoint: at most 20 requests per IP per 15 min.
+ * Rate limit the signup endpoint: at most 7 requests per IP per 15 min.
  * Plenty for a real person (who submits once), but stops anyone flooding
  * the database with junk from a single source.
  */
@@ -31,9 +31,6 @@ const waitlistLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many attempts. Please try again in a little while." },
 });
-
-app.use(cors({ origin: process.env.WAITLIST_ORIGIN || true }));
-app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "foundr-waitlist" });
