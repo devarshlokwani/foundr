@@ -4,7 +4,7 @@
 
 **Live:** [foundr-xi.vercel.app](https://foundr-xi.vercel.app)
 
-Most finance tools are built for funded startups with accountants. Foundr is built for the founder paying for the dream out of their own pocket — it turns the numbers you already track on paper into clear metrics: burn rate, runway, personal ROI, and margins.
+Most finance tools are built for funded startups with accountants. Foundr is built for the founder paying for the dream out of their own pocket, it turns the numbers you already track on paper into clear metrics: burn rate, runway, personal ROI, and margins.
 
 Currently in pre-launch. Waitlist open.
 
@@ -26,17 +26,17 @@ Currently in pre-launch. Waitlist open.
 ## Architecture
 
 ```
-foundr-xi.vercel.app          (static landing — Vercel)
+foundr-xi.vercel.app          (static landing - Vercel)
         │
         │  POST /api/waitlist
         ▼
-foundr.onrender.com           (Express API — Render)
+foundr.onrender.com           (Express API - Render)
         │
         ▼
 MongoDB Atlas                 (waitlist emails)
 ```
 
-The frontend and backend are deployed independently. The landing page is a static build (`dist-landing/`) served by Vercel. The waitlist API is a lightweight standalone Express server on Render — separate from the main app so the pre-launch site ships without exposing unfinished features.
+The frontend and backend are deployed independently. The landing page is a static build (`dist-landing/`) served by Vercel. The waitlist API is a lightweight standalone Express server on Render, separate from the main app so the pre-launch site ships without exposing unfinished features.
 
 ---
 
@@ -73,10 +73,10 @@ npm install
 # Copy env template and fill in your keys
 cp .env.example .env
 
-# Start the frontend (Vite, hot-reload) — http://localhost:5173
+# Start the frontend (Vite, hot-reload) - http://localhost:5173
 npm run dev
 
-# Start the waitlist API — http://localhost:3001
+# Start the waitlist API - http://localhost:3001
 npx tsx server/waitlist-server.ts
 ```
 
@@ -101,10 +101,10 @@ VITE_WAITLIST_API=     # Waitlist API URL (Render in prod, localhost in dev)
 - [x] Intro loader animation
 - [x] Waitlist API with rate limiting + MongoDB
 - [x] Deployed to Vercel + Render
-- [ ] Auth (Clerk) — in development
-- [ ] Dashboard with metrics — in development
-- [ ] Transaction tracking — in development
-- [ ] Shopify + bank sync — roadmap
+- [ ] Auth (Clerk) - in development
+- [ ] Dashboard with metrics - in development
+- [ ] Transaction tracking - in development
+- [ ] Shopify + bank sync - roadmap
 
 ---
 
