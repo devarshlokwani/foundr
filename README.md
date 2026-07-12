@@ -109,7 +109,7 @@ npx tsx server/waitlist-server.ts
 **Preview landing build locally:**
 ```bash
 npx vite preview --config vite.landing.config.ts
-# Mirrors exactly what Vercel serves — use this to test production build locally
+# Mirrors exactly what Vercel serves, use this to test production build locally
 ```
 
 ---
