@@ -16,6 +16,7 @@ gsap.registerPlugin(ScrollTrigger);
  */
 
 let lenis: Lenis | null = null;
+let scrollLocked = false;
 
 const prefersReducedMotion = (): boolean =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -25,24 +26,28 @@ export function initSmoothScroll(): Lenis | null {
   if (prefersReducedMotion()) return null;
   if (lenis) return lenis;
 
-  lenis = new Lenis({
+lenis = new Lenis({
     duration: 0.1,
     easing: (t: number): number => 1 - Math.pow(1 - t, 3),
     smoothWheel: true,
     wheelMultiplier: 0.5,
   });
-
   lenis.on("scroll", ScrollTrigger.update);
 
   gsap.ticker.add((time: number) => {
     lenis?.raf(time * 1000);
   });
-  gsap.ticker.lagSmoothing(0);
+  // Only stay frozen if the loader has an active lock right now; otherwise
+  // Lenis starts normally. This makes init order-independent.
+  if (scrollLocked) {
+    lenis.stop();
+  } else {
+    lenis.start();
+  }
 
   return lenis;
 }
 
-/** Smoothly scroll to a target element or selector. Used by nav links. */
 export function scrollToTarget(target: string | HTMLElement, offset = -80): void {
   if (lenis) {
     lenis.scrollTo(target, { offset });
@@ -55,6 +60,27 @@ export function scrollToTarget(target: string | HTMLElement, offset = -80): void
   }
 }
 
+export function resetScrollToTop(): void {
+  if ("scrollRestoration" in history) {
+    history.scrollRestoration = "manual";
+  }
+  window.scrollTo(0, 0);
+  lenis?.scrollTo(0, { immediate: true });
+}
+
+export function lockScroll(): void {
+  scrollLocked = true;
+  lenis?.stop();
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+}
+
+export function unlockScroll(): void {
+  scrollLocked = false;
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+  lenis?.start();
+}
 /**
  * Reveal elements on scroll with a gentle fade + rise.
  * `root` is the element (or shadow root) the selectors are queried within,

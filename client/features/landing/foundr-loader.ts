@@ -1,6 +1,7 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement } from "lit/decorators.js";
 import gsap from "gsap";
+import { resetScrollToTop, lockScroll, unlockScroll } from "../../shared/lib/animations";
 
 @customElement("foundr-loader")
 export class FoundrLoader extends LitElement {
@@ -9,7 +10,13 @@ export class FoundrLoader extends LitElement {
     const el = (s: string) => root.querySelector(s) as Element;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
+    // Force page to top (defeats browser scroll restoration on reload) and
+    // freeze scrolling while the intro plays.
+    resetScrollToTop();
+    lockScroll();
+
     const finish = () => {
+      unlockScroll();
       this.dispatchEvent(new CustomEvent("loader-done", { bubbles: true, composed: true }));
       this.remove();
     };

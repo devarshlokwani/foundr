@@ -160,7 +160,7 @@ export class FoundrLanding extends LitElement {
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: root.querySelector(".feat-pin"),
-        start: "top top",
+        start: "center center",
         end: "+=" + cards.length * 400,
         pin: true,
         pinType: "transform",
@@ -229,7 +229,7 @@ export class FoundrLanding extends LitElement {
     );
     io.observe(section);
   }
-  
+
   // GSAP-driven hover lift on every pill button (smoother than CSS alone)
   private _setupButtonHovers(): void {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;

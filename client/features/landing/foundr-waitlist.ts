@@ -68,8 +68,17 @@ export class FoundrWaitlist extends LitElement {
     .submit {
       width: 100%; background: var(--forest, #2D4A3E); color: #fff; padding: 14px;
       border-radius: var(--radius-input, 14px); font-size: 15px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    .submit:hover:not(:disabled) { background: var(--forest-deep, #1F3329); }
+    .submit:hover:not(:disabled) {
+      background: var(--forest-deep, #1F3329);
+      transform: translate(-5px, -5px);
+      box-shadow: 5px 5px 0 var(--sage, #8AAF9A);
+    }
+    .submit:active:not(:disabled) {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--forest-deep, #1F3329);
+    }
     .submit:disabled { opacity: 0.6; cursor: not-allowed; }
     .error { color: #A8302B; font-size: 14px; }
     .close { background: none; color: var(--ink-soft, #6B6B66); font-size: 14px; margin-top: 16px; }
