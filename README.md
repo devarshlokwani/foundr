@@ -64,21 +64,7 @@ foundr/
 
 ## Running Locally
 
-**Prerequisites:** Node 18+, MongoDB (local or Atlas), a Clerk account
-
-```bash
-# Install dependencies
-npm install
-
-# Copy env template and fill in your keys
-cp .env.example .env
-
-# Start the frontend (Vite, hot-reload) - http://localhost:5173
-npm run dev
-
-# Start the waitlist API - http://localhost:3001
-npx tsx server/waitlist-server.ts
-```
+See [SETUP.md](./SETUP.md) for full local setup instructions, environment variables, and common issues.
 
 ---
 
@@ -119,6 +105,11 @@ npx vite build --config vite.landing.config.ts
 **Waitlist API (Render):**
 ```bash
 npx tsx server/waitlist-server.ts
+```
+**Preview landing build locally:**
+```bash
+npx vite preview --config vite.landing.config.ts
+# Mirrors exactly what Vercel serves — use this to test production build locally
 ```
 
 ---
