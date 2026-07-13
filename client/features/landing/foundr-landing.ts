@@ -121,6 +121,8 @@ export class FoundrLanding extends LitElement {
 
   @state() private activeMetric = 0;
   @state() private openFaq = -1;
+  @state() private activeFeature = 0;
+  private _featAnimating = false;
 
   private _rotator?: ReturnType<typeof setInterval>;
 
@@ -143,39 +145,14 @@ export class FoundrLanding extends LitElement {
     initSmoothScroll();
 
     revealOnScroll(this.renderRoot, ".step");
-    revealOnScroll(this.renderRoot, ".feat-card");
     revealOnScroll(this.renderRoot, ".sec-head");
     revealOnScroll(this.renderRoot, ".split > div");
     this._initPricingCollage();
 
     this._setupButtonHovers();
 
-    if (window.innerWidth <= 760) {
-      ScrollTrigger.refresh();
-      return;
-    }
-    const root = this.shadowRoot!;
-    const cards = Array.from(root.querySelectorAll(".feat-card")) as HTMLElement[];
-    cards.forEach((c, i) => gsap.set(c, { x: i * 10, y: i * 6, zIndex: cards.length - i, scale: 1 - i * 0.03 }));
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: root.querySelector(".feat-pin"),
-        start: "center center",
-        end: "+=" + cards.length * 400,
-        pin: true,
-        pinType: "transform",
-        scrub: 0.6,
-      },
-    });
-    cards.forEach((c, i) => {
-      if (i === cards.length - 1) return;
-      tl.to(c, { xPercent: 120, rotation: 8, opacity: 0, duration: 1, ease: "power1.inOut" });
-      cards.slice(i + 1).forEach((b, j) => {
-        tl.to(b, { x: j * 10, y: j * 6, scale: 1 - j * 0.03, duration: 1, ease: "power1.inOut" }, "<");
-      });
-    });
+    if (window.innerWidth > 760) this._layoutFeatures(false);
 
-    // Recalculate all trigger positions after the pinned deck reserves scroll space.
     ScrollTrigger.refresh();
   }
 
@@ -229,7 +206,64 @@ export class FoundrLanding extends LitElement {
     );
     io.observe(section);
   }
+  private get _featCards(): HTMLElement[] {
+    return Array.from(this.renderRoot.querySelectorAll(".feat-card")) as HTMLElement[];
+  }
 
+  private _layoutFeatures(animate = true): void {
+    const cards = this._featCards;
+    const n = this.features.length;
+    const VISIBLE = 3;
+    cards.forEach((card, i) => {
+      const offset = (i - this.activeFeature + n) % n;
+      const depth = Math.min(offset, VISIBLE);
+      gsap.to(card, {
+        x: 0,
+        y: depth * 14,
+        scale: 1 - depth * 0.05,
+        opacity: offset > VISIBLE ? 0 : 1,
+        zIndex: n - offset,
+        rotation: 0,
+        duration: animate ? 0.5 : 0,
+        ease: "power2.out",
+      });
+    });
+    // update dots reactively
+    this.requestUpdate();
+  }
+
+  private _nextFeature = (): void => {
+    if (this._featAnimating) return;
+    this._featAnimating = true;
+    const n = this.features.length;
+    const VISIBLE = 3;
+    const front = this._featCards[this.activeFeature];
+    gsap.timeline({ onComplete: () => { this._featAnimating = false; } })
+      .to(front, { x: 150, y: -70, rotation: 10, scale: 1.04, duration: 0.34, ease: "power2.out" })
+      .to(front, {
+        x: 0, y: VISIBLE * 14, rotation: 0, scale: 1 - VISIBLE * 0.05, duration: 0.45, ease: "power2.inOut",
+        onStart: () => gsap.set(front, { zIndex: 0 }),
+      })
+      .add(() => {
+        this.activeFeature = (this.activeFeature + 1) % n;
+        this._layoutFeatures(true);
+      }, 0.34);
+  };
+
+  private _prevFeature = (): void => {
+    if (this._featAnimating) return;
+    this._featAnimating = true;
+    const n = this.features.length;
+    this.activeFeature = (this.activeFeature - 1 + n) % n;
+    const incoming = this._featCards[this.activeFeature];
+    gsap.set(incoming, { zIndex: n, x: 150, y: -70, rotation: 10, scale: 1.04, opacity: 1 });
+    this._layoutFeatures(true);
+    gsap.to(incoming, {
+      x: 0, y: 0, rotation: 0, scale: 1, duration: 0.5, ease: "power2.out",
+      onComplete: () => { this._featAnimating = false; },
+    });
+  };
+  
   // GSAP-driven hover lift on every pill button (smoother than CSS alone)
   private _setupButtonHovers(): void {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -453,13 +487,15 @@ export class FoundrLanding extends LitElement {
     }
     .final .fineprint { margin-top: 18px; font-size: 13px; color: rgba(255,255,255,0.6); }
 
-    .feat-pin { padding: 60px 20px; display: flex; flex-direction: column; align-items: center; background: var(--surface-alt, #F2EFE8); }
-    .deck { position: relative; width: 340px; height: 400px; }
+    .feat-carousel { padding: 60px 20px 80px; display: flex; flex-direction: column; align-items: center; }
+    .deck-wrap { display: flex; align-items: center; gap: 88px; }
+    .deck { position: relative; width: 340px; height: 400px; overflow: visible; }
     .feat-card {
       position: absolute; inset: 0; background: var(--surface, #FAFAF7);
       border: 1px solid var(--line, #E2DFD7); border-radius: 24px; padding: 34px;
       box-shadow: 0 20px 50px -20px rgba(31,51,41,0.25);
       display: flex; flex-direction: column; justify-content: center; gap: 14px;
+      will-change: transform, opacity;
     }
     .feat-ic { width: 52px; height: 52px; border-radius: 14px; background: var(--forest, #2D4A3E); color: #fff; display: grid; place-items: center; font-size: 22px; }
     .feat-ic .ti { font-family: "tabler-icons" !important; font-style: normal; font-weight: normal; line-height: 1; }
@@ -469,12 +505,27 @@ export class FoundrLanding extends LitElement {
     .feat-ic .ti-percentage:before { content: "\\ecf4"; }
     .feat-ic .ti-category:before { content: "\\f1f6"; }
     .feat-ic .ti-flag:before { content: "\\eaa6"; }
-    .feat-card h3 { font-family: var(--font-display, serif); font-weight: 400; font-size: 26px; color: var(--ink, #1C1C1C); }
-    .feat-card p { font-size: 16px; color: var(--ink-soft, #6B6B66); line-height: 1.5; }
+    .feat-card h3 { font-family: var(--font-display, serif); font-weight: 400; font-size: 26px; color: var(--ink, #1C1C1C); margin: 0; }
+    .feat-card p { font-size: 16px; color: var(--ink-soft, #6B6B66); line-height: 1.5; margin: 0; }
     .feat-count { position: absolute; top: 22px; right: 26px; font-size: 13px; color: var(--ink-soft, #6B6B66); }
+
+    .nav-btn {
+      width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--forest, #2D4A3E);
+      background: transparent; color: var(--forest, #2D4A3E); font-size: 20px; cursor: pointer;
+      display: grid; place-items: center; transition: background 0.2s ease, transform 0.15s ease; flex-shrink: 0;
+    }
+    .nav-btn:hover { background: var(--forest, #2D4A3E); color: #fff; }
+    .nav-btn:active { transform: scale(0.92); }
+    .nav-btn .ti-chevron-left:before { content: "\\ea60"; }
+    .nav-btn .ti-chevron-right:before { content: "\\ea61"; }
+
+    .dots { display: flex; gap: 8px; margin-top: 28px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line, #E2DFD7); transition: background 0.25s ease, width 0.25s ease; }
+    .dot.active { background: var(--forest, #2D4A3E); width: 22px; border-radius: 4px; }
+
     @media (max-width: 760px) {
-      .deck { position: static; width: 100%; height: auto; display: flex; flex-direction: column; gap: 16px; }
-      .feat-card { position: static; }
+      .deck-wrap { gap: 20px; }
+      .deck { width: 280px; }
     }
 
     .footer { border-top: 0.5px solid var(--line, #E2DFD7); padding: 48px 0 40px; }
@@ -617,25 +668,38 @@ export class FoundrLanding extends LitElement {
     `;
   }
 
-  private _renderFeatures(): TemplateResult {
+ private _renderFeatures(): TemplateResult {
     return html`
-     <section class="feat-pin" id="features">
-        <div class="sec-head" style="text-align:center;margin-bottom:32px;">
+      <section class="feat-carousel" id="features" style="background: var(--surface-alt, #F2EFE8);">
+        <div class="sec-head">
           <div class="sec-label">Features</div>
           <h2 class="sec-title">Every number a founder needs</h2>
           <p class="sec-sub">The metrics that tell you whether your business is healthy, calculated for you, explained in plain words.</p>
         </div>
-        <div class="deck" id="featDeck">
-          ${this.features.map(
-            (f, i) => html`
-              <div class="feat-card">
-                <div class="feat-ic"><i class="ti ${f.icon}" aria-hidden="true"></i></div>
-                <h3>${f.title}</h3>
-                <p>${f.body}</p>
-                <span class="feat-count">${i + 1} / ${this.features.length}</span>
-              </div>
-            `
-          )}
+
+        <div class="deck-wrap">
+          <button class="nav-btn" @click=${this._prevFeature} aria-label="Previous feature">
+            <i class="ti ti-chevron-left" aria-hidden="true"></i>
+          </button>
+          <div class="deck" id="featDeck">
+            ${this.features.map(
+              (f, i) => html`
+                <div class="feat-card" data-i=${i}>
+                  <span class="feat-count">${i + 1} / ${this.features.length}</span>
+                  <div class="feat-ic"><i class="ti ${f.icon}" aria-hidden="true"></i></div>
+                  <h3>${f.title}</h3>
+                  <p>${f.body}</p>
+                </div>
+              `
+            )}
+          </div>
+          <button class="nav-btn" @click=${this._nextFeature} aria-label="Next feature">
+            <i class="ti ti-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="dots">
+          ${this.features.map((_, i) => html`<div class="dot ${i === this.activeFeature ? "active" : ""}"></div>`)}
         </div>
       </section>
     `;

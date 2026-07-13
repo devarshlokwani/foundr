@@ -48,16 +48,18 @@ lenis = new Lenis({
   return lenis;
 }
 
-export function scrollToTarget(target: string | HTMLElement, offset = -80): void {
+export function scrollToTarget(target: string | HTMLElement, offset = -90): void {
   if (lenis) {
-    lenis.scrollTo(target, { offset });
+    lenis.scrollTo(target, {
+      offset,
+      duration: 1.0,
+      easing: (t: number): number => 1 - Math.pow(1 - t, 3),
+      onComplete: () => ScrollTrigger.refresh(),
+    });
     return;
   }
-  // Fallback when smooth scroll is disabled (reduced motion)
   const el = typeof target === "string" ? document.querySelector(target) : target;
-  if (el instanceof HTMLElement) {
-    window.scrollTo({ top: el.offsetTop + offset, behavior: "auto" });
-  }
+  if (el instanceof HTMLElement) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 export function resetScrollToTop(): void {
