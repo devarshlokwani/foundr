@@ -64,16 +64,16 @@ export class FoundrLanding extends LitElement {
     {
       name: "Starter",
       price: "Free",
-      sub: "at launch",
+      sub: "forever",
       tagline: "For founders just getting going",
       features: ["Track 1 business", "All core metrics", "Manual entry", "Up to 50 transactions/mo"],
-      cta: "Join the waitlist",
+      cta: "Start free",
       featured: false,
     },
     {
       name: "Founder",
-      price: "The full toolkit",
-      sub: "",
+      price: "$20",
+      sub: "per month",
       tagline: "For founders ready to scale",
       features: [
         "Everything in Starter",
@@ -82,16 +82,16 @@ export class FoundrLanding extends LitElement {
         "Milestones & goals",
         "Export reports",
       ],
-      cta: "Join the waitlist",
+      cta: "Start free trial",
       featured: true,
     },
     {
       name: "Growth",
-      price: "On the roadmap",
+      price: "Coming soon",
       sub: "",
       tagline: "Auto-sync, no manual entry",
       features: ["Everything in Founder", "Shopify integration", "Auto-tracked sales", "Bank sync", "Early access list"],
-      cta: "Join the waitlist",
+      cta: "Join waitlist",
       featured: false,
     },
   ];
@@ -292,9 +292,12 @@ export class FoundrLanding extends LitElement {
     }
   }
 
-  // Opens the waitlist modal (both CTAs use this pre-launch).
+  // Auth hooks — the entry point wires these to /sign-up and /sign-in.
   private _getStarted(): void {
     this.dispatchEvent(new CustomEvent("get-started", { bubbles: true, composed: true }));
+  }
+  private _signIn(): void {
+    this.dispatchEvent(new CustomEvent("sign-in", { bubbles: true, composed: true }));
   }
   private _toggleFaq(i: number): void {
     this.openFaq = this.openFaq === i ? -1 : i;
@@ -356,8 +359,20 @@ export class FoundrLanding extends LitElement {
       box-shadow: 1px 1px 0 var(--forest-deep, #1F3329);
     }
     .btn-primary.lg { padding: 15px 28px; font-size: 15px; }
-    .btn-ghost { background: transparent; color: var(--ink, #1C1C1C); padding: 11px 18px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
-    .btn-ghost:hover { background: rgba(45,74,62,0.07); }
+    .btn-ghost {
+      background: transparent; color: var(--ink, #1C1C1C); padding: 11px 18px;
+      border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    }
+    .btn-ghost:hover {
+      background: rgba(45,74,62,0.07);
+      transform: translate(-5px, -5px);
+      box-shadow: 5px 5px 0 var(--sage, #8AAF9A);
+    }
+    .btn-ghost:active {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--forest-deep, #1F3329);
+    }
 
     .nav { position: sticky; top: 0; z-index: 50; background: rgba(236,234,227,0.82); backdrop-filter: blur(10px); border-bottom: 0.5px solid var(--line, #E2DFD7); }
     .nav-inner { max-width: 1180px; margin: 0 auto; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
@@ -456,8 +471,20 @@ export class FoundrLanding extends LitElement {
     .plan-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; margin-bottom: 12px; color: var(--ink, #1C1C1C); }
     .plan-features .tick { color: var(--forest, #2D4A3E); flex-shrink: 0; font-size: 16px; margin-top: 1px; }
     .plan button { width: 100%; }
-    .btn-outline { background: transparent; color: var(--forest, #2D4A3E); border: 1px solid var(--forest, #2D4A3E); padding: 12px 22px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500; }
-    .btn-outline:hover { background: rgba(45,74,62,0.06); }
+    .btn-outline {
+      background: transparent; color: var(--forest, #2D4A3E); border: 1px solid var(--forest, #2D4A3E);
+      padding: 12px 22px; border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    }
+    .btn-outline:hover {
+      background: rgba(45,74,62,0.06);
+      transform: translate(-5px, -5px);
+      box-shadow: 5px 5px 0 var(--sage, #8AAF9A);
+    }
+    .btn-outline:active {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--forest-deep, #1F3329);
+    }
 
     .faq-list { max-width: 760px; margin: 0 auto; }
     .faq-item { border-bottom: 0.5px solid var(--line, #E2DFD7); }
@@ -582,11 +609,12 @@ export class FoundrLanding extends LitElement {
           <div class="nav-links nav-menu">
             <a href="#how" @click=${(e: Event) => this._navClick(e, "#how")}>How it works</a>
             <a href="#features" @click=${(e: Event) => this._navClick(e, "#features")}>Features</a>
-            <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Plans</a>
+            <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Pricing</a>
             <a href="#faq" @click=${(e: Event) => this._navClick(e, "#faq")}>FAQ</a>
           </div>
           <div class="nav-actions">
-            <button class="btn-primary" @click=${this._getStarted}>Join the waitlist</button>
+            <button class="btn-ghost" @click=${this._signIn}>Sign in</button>
+            <button class="btn-primary" @click=${this._getStarted}>Get started</button>
           </div>
         </div>
       </nav>
@@ -605,9 +633,10 @@ export class FoundrLanding extends LitElement {
             margins, so you always know if it's working.
           </p>
           <div class="cta-row">
-            <button class="btn-primary lg" @click=${this._getStarted}>Join the waitlist</button>
+            <button class="btn-primary lg" @click=${this._getStarted}>Start tracking free</button>
+            <button class="btn-ghost" @click=${this._signIn}>I already have an account</button>
           </div>
-          <p class="trust">Launching soon · Be the first to know when early access opens</p>
+          <p class="trust">No card required · Add your first expense in under a minute</p>
         </div>
 
         <div class="preview" role="img" aria-label="Preview of the Foundr dashboard showing live financial metrics">
@@ -738,9 +767,9 @@ export class FoundrLanding extends LitElement {
       <section class="pad" id="pricing" style="background: var(--surface-alt, #F2EFE8);">
         <div class="wrap">
           <div class="sec-head">
-            <div class="sec-label">Plans</div>
-            <h2 class="sec-title">What you'll get at launch.</h2>
-            <p class="sec-sub">Foundr is in the works. Here's what each plan will include, join the waitlist to get early access.</p>
+            <div class="sec-label">Pricing</div>
+            <h2 class="sec-title">Start free. Upgrade when you grow.</h2>
+            <p class="sec-sub">No card to begin. Cancel anytime. Built to be affordable for a founder funding it themselves.</p>
           </div>
           <div class="plans">
             ${this.plans.map(
@@ -804,8 +833,8 @@ export class FoundrLanding extends LitElement {
           <div class="final">
             <h2>Your business deserves to be understood.</h2>
             <p>Stop guessing on paper. Start seeing your numbers clearly today.</p>
-            <button class="btn-light" @click=${this._getStarted}>Join the waitlist</button>
-            <p class="fineprint">Be first in line when early access opens</p>
+            <button class="btn-light" @click=${this._getStarted}>Start tracking free</button>
+            <p class="fineprint">No card required · Set up in under a minute</p>
           </div>
         </div>
       </section>
@@ -826,12 +855,19 @@ export class FoundrLanding extends LitElement {
                 <h4>Product</h4>
                 <a href="#how" @click=${(e: Event) => this._navClick(e, "#how")}>How it works</a>
                 <a href="#features" @click=${(e: Event) => this._navClick(e, "#features")}>Features</a>
-                <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Plans</a>
+                <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Pricing</a>
               </div>
               <div class="footer-col">
-                <h4>Get in touch</h4>
-                <a href="#" @click=${(e: Event) => { e.preventDefault(); this._getStarted(); }}>Join the waitlist</a>
-                <a href="#" @click=${(e: Event) => { e.preventDefault(); this._getStarted(); }}>Contact</a>
+                <h4>Company</h4>
+                <a href="#">About</a>
+                <a href="#">Blog</a>
+                <a href="#">Contact</a>
+              </div>
+              <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+                <a href="#">Security</a>
               </div>
             </div>
           </div>
