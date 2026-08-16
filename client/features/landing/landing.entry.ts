@@ -9,6 +9,8 @@ import "./foundr-loader";
  */
 const app = document.querySelector("foundr-landing");
 
+document.body.appendChild(document.createElement("foundr-loader"));
+
 app?.addEventListener("get-started", () => {
   window.location.href = "/sign-up";
 });

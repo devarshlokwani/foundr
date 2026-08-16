@@ -1,10 +1,13 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, state, query } from "lit/decorators.js";
-import { getClerk, signOut } from "../auth/auth.service";
+import { getClerk } from "../auth/auth.service";
 import { apiGet } from "../../shared/lib/api";
 import type { DashboardMetrics } from "../../shared/lib/types";
 import "./foundr-add-entry";
 import "./foundr-insights";
+import "../../shared/components/foundr-topbar";
+import "../../shared/components/foundr-page-loader";
+import "../../shared/components/foundr-mini-loader";
 import type { FoundrInsights } from "./foundr-insights";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
@@ -21,11 +24,19 @@ import { loadSettings } from "../../shared/lib/settings";
 @customElement("foundr-dashboard")
 export class FoundrDashboard extends LitElement {
   @state() private loading = true;
+  // Two-tier loading feedback: the small mini-loader shows the instant
+  // loading starts (no gap, no delay). If it's still going after a couple
+  // seconds, that's unexpectedly slow — escalate to the full entrance
+  // animation with a reassuring message.
+  @state() private escalated = false;
+  @state() private loaderVisible = false;
   @state() private error = "";
   @state() private metrics: DashboardMetrics | null = null;
   @state() private userName = "founder";
   @state() private modalOpen = false;
     @query("foundr-insights") private insightsEl?: FoundrInsights;
+
+  private _escalateTimer?: ReturnType<typeof setTimeout>;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -42,8 +53,17 @@ export class FoundrDashboard extends LitElement {
     }
 
     this.userName = clerk.user.firstName || "founder";
+
+    this._escalateTimer = setTimeout(() => {
+      if (this.loading) {
+        this.escalated = true;
+        this.loaderVisible = true;
+      }
+    }, 2000);
+
     await loadSettings();
     await this._loadMetrics();
+    clearTimeout(this._escalateTimer);
   }
 
   private async _loadMetrics(): Promise<void> {
@@ -69,11 +89,6 @@ export class FoundrDashboard extends LitElement {
  private async _onEntryAdded(): Promise<void> {
     await this._loadMetrics();
     await this.insightsEl?.refresh();
-  }
-
-  private async _signOut(): Promise<void> {
-    await signOut();
-    window.location.href = "/";
   }
 
   // Has the founder entered anything yet?
@@ -118,30 +133,14 @@ export class FoundrDashboard extends LitElement {
     .ti-wallet:before { content: "\\eb75"; }
     .ti-pencil-plus:before { content: "\\f1ec"; }
     .ti-plus:before { content: "\\eb0b"; }
-    .topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 28px; border-bottom: 0.5px solid var(--line, #E2DFD7);
-      background: var(--surface, #FAFAF7);
-    }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 19px; }
-    .brand .mark {
-      width: 30px; height: 30px; border-radius: 9px; background: var(--forest, #2D4A3E);
-      color: #fff; display: grid; place-items: center; font-family: var(--font-display, serif); font-size: 16px;
-    }
-    .topbar-right { display: flex; align-items: center; gap: 14px; }
-    .nav-link { font-size: 14px; color: var(--ink-soft, #6B6B66); text-decoration: none; }
-    .nav-link:hover { color: var(--ink, #1C1C1C); }
     .add-btn {
       background: var(--forest, #2D4A3E); color: #fff; font-size: 14px; font-weight: 500;
       padding: 9px 16px; border-radius: var(--radius-pill, 999px); display: flex; align-items: center; gap: 6px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    .add-btn:hover { background: var(--forest-deep, #1F3329); }
+    .add-btn:hover { background: var(--forest-deep, #1F3329); transform: translate(-5px, -5px); box-shadow: 5px 5px 0 var(--sage, #8AAF9A); }
+    .add-btn:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
-    .signout {
-      background: transparent; color: var(--ink-soft, #6B6B66); font-size: 14px;
-      padding: 8px 14px; border-radius: var(--radius-pill, 999px);
-    }
-    .signout:hover { background: rgba(45,74,62,0.07); color: var(--ink, #1C1C1C); }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
@@ -180,18 +179,20 @@ export class FoundrDashboard extends LitElement {
     .btn-primary {
       background: var(--forest, #2D4A3E); color: #fff; padding: 13px 24px;
       border-radius: var(--radius-pill, 999px); font-size: 15px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    .btn-primary:hover { background: var(--forest-deep, #1F3329); }
+    .btn-primary:hover { background: var(--forest-deep, #1F3329); transform: translate(-5px, -5px); box-shadow: 5px 5px 0 var(--sage, #8AAF9A); }
+    .btn-primary:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .error-box {
-      background: #FBEAE9; color: #A8302B; border: 1px solid #F0C5C3;
+      background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3);
       border-radius: 12px; padding: 14px 18px; font-size: 14px;
     }
-    .skeleton {
-      background: linear-gradient(90deg, #EDEBE4 25%, #F4F2EC 50%, #EDEBE4 75%);
-      background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius-card, 24px);
-      height: 120px;
+    .page-area { position: relative; min-height: 420px; }
+    .loader-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--bg, #ECEAE3); z-index: 5;
     }
-    @keyframes shimmer { to { background-position: -200% 0; } }
+    .loading-hint { font-size: 13px; color: var(--ink-soft, #6B6B66); text-align: center; margin: -8px 0 0; }
 
     @media (max-width: 880px) {
       .kpi-grid, .secondary-grid { grid-template-columns: 1fr 1fr; }
@@ -203,55 +204,45 @@ export class FoundrDashboard extends LitElement {
 
   private _renderTopbar(): TemplateResult {
     return html`
-      <div class="topbar">
-        <a class="brand" href="/" style="text-decoration:none;color:inherit">
-          <span class="mark">F</span>Foundr
-        </a>
-        <div class="topbar-right">
-          <a class="nav-link" href="/transactions">All entries</a>
-          <a class="nav-link" href="/settings">Settings</a>
-          <button class="add-btn" @click=${this._openModal}><i class="ti ti-plus" aria-hidden="true"></i>Add entry</button>
-          <button class="signout" @click=${this._signOut}>Sign out</button>
-        </div>
-      </div>
+      <foundr-topbar active="dashboard">
+        <button slot="actions" class="add-btn" @click=${this._openModal}>
+          <i class="ti ti-plus" aria-hidden="true"></i>Add entry
+        </button>
+      </foundr-topbar>
     `;
   }
 
-  private _renderLoading(): TemplateResult {
-    return html`
-      <div class="page">
-        <div class="kpi-grid">
-          <div class="skeleton"></div><div class="skeleton"></div>
-          <div class="skeleton"></div><div class="skeleton"></div>
-        </div>
-      </div>
-    `;
+  // The header shows immediately (userName is known before metrics load) —
+  // isEmpty defaults to true while loading, so this reads naturally as the
+  // first-time-user copy until real data says otherwise.
+  private _renderHeader(): TemplateResult {
+    return this.isEmpty
+      ? html`
+          <h1 class="greeting">Welcome, ${this.userName}.</h1>
+          <p class="greeting-sub">Let's get your first numbers in.</p>
+        `
+      : html`
+          <h1 class="greeting">Hello, ${this.userName}.</h1>
+          <p class="greeting-sub">Here's where your business stands today.</p>
+        `;
   }
 
   private _renderEmpty(): TemplateResult {
     return html`
-      <div class="page">
-        <h1 class="greeting">Welcome, ${this.userName}.</h1>
-        <p class="greeting-sub">Let's get your first numbers in.</p>
-        <div class="state">
-          <div class="state-icon"><i class="ti ti-pencil-plus" aria-hidden="true"></i></div>
-          <h2>Nothing tracked yet</h2>
-          <p>Add your first expense or the money you've put into the business, and your metrics will appear here automatically.</p>
-          <button class="btn-primary" @click=${this._openModal}>
-            Add your first entry
-          </button>
-        </div>
+      <div class="state">
+        <div class="state-icon"><i class="ti ti-pencil-plus" aria-hidden="true"></i></div>
+        <h2>Nothing tracked yet</h2>
+        <p>Add your first expense or the money you've put into the business, and your metrics will appear here automatically.</p>
+        <button class="btn-primary" @click=${this._openModal}>
+          Add your first entry
+        </button>
       </div>
     `;
   }
 
   private _renderMetrics(m: DashboardMetrics): TemplateResult {
     return html`
-      <div class="page">
-        <h1 class="greeting">Hello, ${this.userName}.</h1>
-        <p class="greeting-sub">Here's where your business stands today.</p>
-
-        <div class="kpi-grid">
+      <div class="kpi-grid">
           <div class="kpi">
             <div class="kpi-label"><i class="ti ti-flame" aria-hidden="true"></i>Monthly burn</div>
             <div class="kpi-value">${this._money(m.monthlyBurn)}</div>
@@ -295,15 +286,36 @@ export class FoundrDashboard extends LitElement {
   }
 
   render(): TemplateResult {
-    let body: TemplateResult;
-    if (this.loading) body = this._renderLoading();
-    else if (this.error) body = html`<div class="page"><div class="error-box">${this.error}</div></div>`;
-    else if (this.isEmpty) body = this._renderEmpty();
-    else body = this._renderMetrics(this.metrics!);
+    let body: TemplateResult = html``;
+    if (!this.loading) {
+      if (this.error) body = html`<div class="error-box">${this.error}</div>`;
+      else if (this.isEmpty) body = this._renderEmpty();
+      else body = this._renderMetrics(this.metrics!);
+    }
 
     return html`
       ${this._renderTopbar()}
-      ${body}
+      <div class="page">
+        ${this._renderHeader()}
+        <div class="page-area">
+          ${body}
+          ${this.loading && !this.escalated
+            ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
+            : ""}
+          ${this.loaderVisible
+            ? html`
+                <div class="loader-overlay">
+                  <foundr-page-loader
+                    ?done=${!this.loading}
+                    @loader-exit-done=${() => { this.loaderVisible = false; }}
+                  >
+                    <p slot="hint" class="loading-hint">This is taking longer than usual…</p>
+                  </foundr-page-loader>
+                </div>
+              `
+            : ""}
+        </div>
+      </div>
       <foundr-add-entry
         .open=${this.modalOpen}
         @close=${this._closeModal}

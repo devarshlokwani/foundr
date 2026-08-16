@@ -13,6 +13,17 @@
   --danger: #D9534F;
   --positive: #4F8A6B;
 
+  /* Secondary semantic tokens — used by error states, inputs, charts, badges */
+  --input-bg: #FFFFFF;
+  --danger-bg: #FBEAE9;
+  --danger-border: #F0C5C3;
+  --skeleton-a: #EDEBE4;
+  --skeleton-b: #F4F2EC;
+  --tone-warn: #C98A2B;
+  --accent-purple: #5B4B8A;
+  --accent-purple-bg: #EAE6F3;
+  --overlay: rgba(28, 28, 28, 0.45);
+
   /* Type */
   --font-display: "DM Serif Display", Georgia, serif;
   --font-body: "Inter", system-ui, -apple-system, sans-serif;
@@ -23,4 +34,149 @@
   --radius-input: 14px;
   --shadow-soft: 0 18px 50px -20px rgba(31, 51, 41, 0.25);
   --shadow-card: 0 8px 28px -12px rgba(31, 51, 41, 0.18);
+}
+
+/*
+ * App themes — scoped to the signed-in app shell (dashboard, transactions,
+ * margins, settings) via [data-theme] on <html>. The public landing/auth
+ * pages never set this attribute, so they always render the tokens above.
+ */
+:root[data-theme="dark"] {
+  --bg: #14161A;
+  --surface: #1C1F24;
+  --surface-alt: #20242A;
+  --forest: #4C8267;
+  --forest-deep: #6FA487;
+  --sage: #7FB69B;
+  --sage-soft: #223129;
+  --ink: #ECEDEE;
+  --ink-soft: #9AA0A6;
+  --line: #2B2F35;
+  --danger: #F2726E;
+  --positive: #6FCB9A;
+
+  --input-bg: #23262B;
+  --danger-bg: #3A2226;
+  --danger-border: #5A2E30;
+  --skeleton-a: #23262B;
+  --skeleton-b: #2A2E34;
+  --tone-warn: #E0A94D;
+  --accent-purple: #B9A9E8;
+  --accent-purple-bg: #2B2740;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --shadow-soft: 0 18px 50px -20px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 8px 28px -12px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="royal"] {
+  --bg: #F4F0FA;
+  --surface: #FFFFFF;
+  --surface-alt: #EDE6F7;
+  --forest: #4B2E83;
+  --forest-deep: #35205E;
+  --sage: #C9A227;
+  --sage-soft: #F3E7C6;
+  --ink: #241B33;
+  --ink-soft: #6E6280;
+  --line: #DED1EF;
+  --danger: #B3261E;
+  --positive: #2E7D5B;
+
+  --input-bg: #FFFFFF;
+  --danger-bg: #FBEAEA;
+  --danger-border: #F0C9C7;
+  --skeleton-a: #EDE6F7;
+  --skeleton-b: #F6F1FB;
+  --tone-warn: #B8860B;
+  --accent-purple: #4B2E83;
+  --accent-purple-bg: #E7DAF7;
+  --overlay: rgba(36, 27, 51, 0.5);
+
+  --shadow-soft: 0 18px 50px -20px rgba(75, 46, 131, 0.28);
+  --shadow-card: 0 8px 28px -12px rgba(75, 46, 131, 0.22);
+}
+
+:root[data-theme="ocean"] {
+  --bg: #EAF1F3;
+  --surface: #FFFFFF;
+  --surface-alt: #E3EEF1;
+  --forest: #1F5A6E;
+  --forest-deep: #163F4D;
+  --sage: #6FA8B8;
+  --sage-soft: #D6E8ED;
+  --ink: #16232A;
+  --ink-soft: #5C7480;
+  --line: #D3E1E6;
+  --danger: #C94A3D;
+  --positive: #2E8A6B;
+
+  --input-bg: #FFFFFF;
+  --danger-bg: #FBEAE8;
+  --danger-border: #F0C7C1;
+  --skeleton-a: #E3EEF1;
+  --skeleton-b: #EFF6F8;
+  --tone-warn: #C08A2E;
+  --accent-purple: #6A5A9C;
+  --accent-purple-bg: #E7E3F3;
+  --overlay: rgba(15, 35, 42, 0.5);
+
+  --shadow-soft: 0 18px 50px -20px rgba(31, 90, 110, 0.25);
+  --shadow-card: 0 8px 28px -12px rgba(31, 90, 110, 0.18);
+}
+
+:root[data-theme="sunset"] {
+  --bg: #FBF0E6;
+  --surface: #FFFFFF;
+  --surface-alt: #F7E6D3;
+  --forest: #B5502E;
+  --forest-deep: #8A3A20;
+  --sage: #E3A85C;
+  --sage-soft: #FBE4C2;
+  --ink: #2E2015;
+  --ink-soft: #83705F;
+  --line: #EAD9C4;
+  --danger: #C0392B;
+  --positive: #4F8A4F;
+
+  --input-bg: #FFFFFF;
+  --danger-bg: #FBEAE6;
+  --danger-border: #F0CBC0;
+  --skeleton-a: #F0DFC9;
+  --skeleton-b: #F8ECDA;
+  --tone-warn: #B5762A;
+  --accent-purple: #8A5A8C;
+  --accent-purple-bg: #F0E1EE;
+  --overlay: rgba(46, 32, 21, 0.5);
+
+  --shadow-soft: 0 18px 50px -20px rgba(181, 80, 46, 0.25);
+  --shadow-card: 0 8px 28px -12px rgba(181, 80, 46, 0.18);
+}
+
+:root[data-theme="slate"] {
+  --bg: #15181D;
+  --surface: #1E2228;
+  --surface-alt: #242830;
+  --forest: #5B7A99;
+  --forest-deep: #7A9CBD;
+  --sage: #8B9BAE;
+  --sage-soft: #262C35;
+  --ink: #E8EAED;
+  --ink-soft: #939AA3;
+  --line: #2E333B;
+  --danger: #E06C64;
+  --positive: #6FCB9A;
+
+  --input-bg: #262B32;
+  --danger-bg: #3A2523;
+  --danger-border: #5C332F;
+  --skeleton-a: #262B32;
+  --skeleton-b: #2D323A;
+  --tone-warn: #D3A24E;
+  --accent-purple: #B8A8E0;
+  --accent-purple-bg: #2A2740;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  --shadow-soft: 0 18px 50px -20px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 8px 28px -12px rgba(0, 0, 0, 0.5);
 }

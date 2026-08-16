@@ -134,10 +134,199 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   }
 }
 
+/**
+ * Forgot-password flow, three steps against `client.signIn` (not `signUp` —
+ * this signs the user back in once their new password is set):
+ *   1. requestPasswordReset(email)    — sends the code, to whichever of the
+ *      account's verified emails (primary or a recovery one) was given.
+ *   2. confirmPasswordResetCode(code) — verifies it.
+ *   3. setNewPassword(password)       — sets the password and completes the
+ *      sign-in, same as signInWithEmail.
+ */
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  const ctx = await getClient();
+  if (!ctx) return { ok: false, error: "Auth isn't configured yet. Add your Clerk key to .env." };
+
+  try {
+    await ctx.client.signIn.create({ strategy: "reset_password_email_code", identifier: email });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+export async function confirmPasswordResetCode(code: string): Promise<AuthResult> {
+  const ctx = await getClient();
+  if (!ctx) return { ok: false, error: "Auth isn't configured yet." };
+
+  try {
+    const res = await ctx.client.signIn.attemptFirstFactor({ strategy: "reset_password_email_code", code });
+    if (res.status === "needs_new_password") return { ok: true };
+    return { ok: false, error: "That code didn't work." };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+export async function setNewPassword(password: string): Promise<AuthResult> {
+  const ctx = await getClient();
+  if (!ctx) return { ok: false, error: "Auth isn't configured yet." };
+
+  try {
+    const res = await ctx.client.signIn.resetPassword({ password });
+    if (res.status === "complete" && res.createdSessionId) {
+      await ctx.clerk.setActive({ session: res.createdSessionId });
+      window.location.href = "/dashboard";
+      return { ok: true };
+    }
+    return { ok: false, error: "Couldn't finish resetting your password. Please try again." };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
 /** Sign the current user out. */
 export async function signOut(): Promise<void> {
   const c = await getClerk();
   await c?.signOut();
+}
+
+/** Get the signed-in Clerk user, guaranteed defined. Null if not signed in. */
+async function getUser() {
+  const c = await getClerk();
+  if (!c || !c.user) return null;
+  return c.user;
+}
+
+/** Update the founder's first/last name — this is Clerk identity data, not ours. */
+export async function updateProfileName(firstName: string, lastName: string): Promise<AuthResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    await user.update({ firstName, lastName });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+export interface TOTPEnrollResult {
+  ok: boolean;
+  error?: string;
+  /** Plain manually-typeable setup key — no QR code needed. */
+  secret?: string;
+}
+
+/** Start authenticator-app (TOTP) enrollment. Returns a secret to type into the app. */
+export async function startTOTPEnrollment(): Promise<TOTPEnrollResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    const totp = await user.createTOTP();
+    return { ok: true, secret: totp.secret };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+/** Confirm TOTP enrollment with the 6-digit code from the authenticator app. */
+export async function confirmTOTPEnrollment(code: string): Promise<AuthResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    await user.verifyTOTP({ code });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+/** Turn off authenticator-app MFA. */
+export async function disableMFA(): Promise<AuthResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    await user.disableTOTP();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+export interface BackupCodesResult {
+  ok: boolean;
+  error?: string;
+  /** One-time reveal — Clerk won't show these again after this call. */
+  codes?: string[];
+}
+
+/** Generate a fresh set of MFA backup codes (running this again regenerates them). */
+export async function regenerateBackupCodes(): Promise<BackupCodesResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    const resource = await user.createBackupCode();
+    return { ok: true, codes: resource.codes };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+export interface AddEmailResult {
+  ok: boolean;
+  error?: string;
+  emailId?: string;
+}
+
+/** Add a secondary email and send it a verification code. */
+export async function addSecondaryEmail(email: string): Promise<AddEmailResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  try {
+    const emailResource = await user.createEmailAddress({ email });
+    await emailResource.prepareVerification({ strategy: "email_code" });
+    return { ok: true, emailId: emailResource.id };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+/** Confirm a newly-added secondary email with the code sent to it. */
+export async function verifySecondaryEmail(emailId: string, code: string): Promise<AuthResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  const emailResource = user.emailAddresses.find((e) => e.id === emailId);
+  if (!emailResource) return { ok: false, error: "That email address wasn't found — try adding it again." };
+
+  try {
+    await emailResource.attemptVerification({ code });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
+}
+
+/** Remove an email address from the account (can't remove the primary one). */
+export async function removeEmail(emailId: string): Promise<AuthResult> {
+  const user = await getUser();
+  if (!user) return { ok: false, error: "You must be signed in to do that." };
+
+  const emailResource = user.emailAddresses.find((e) => e.id === emailId);
+  if (!emailResource) return { ok: false, error: "That email address wasn't found." };
+
+  try {
+    await emailResource.destroy();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: readClerkError(err) };
+  }
 }
 
 /** Pull a human-readable message out of a Clerk error. */

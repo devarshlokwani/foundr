@@ -54,6 +54,19 @@ export function computeCategoryBreakdown(entries: InsightEntry[]): CategorySlice
     .sort((a, b) => b.total - a.total);
 }
 
+/** Group revenue by category, largest total first. Mirrors computeCategoryBreakdown. */
+export function computeRevenueBreakdown(entries: InsightEntry[]): CategorySlice[] {
+  const totals = new Map<string, number>();
+  for (const e of entries) {
+    if (e.type !== "income") continue;
+    const key = e.category || "Uncategorised";
+    totals.set(key, (totals.get(key) ?? 0) + e.amount);
+  }
+  return [...totals.entries()]
+    .map(([category, total]) => ({ category, total: Math.round(total) }))
+    .sort((a, b) => b.total - a.total);
+}
+
 /**
  * Build a running cash balance per month.
  * Cash moves up with investments and income, down with expenses. We walk

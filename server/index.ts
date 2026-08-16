@@ -11,6 +11,7 @@ import categoriesRouter from "./routes/categories.js";
 import insightsRouter from "./routes/insights.js";
 import entriesRouter from "./routes/entries.js";
 import settingsRouter from "./routes/settings.js";
+import reportsRouter from "./routes/reports.js";
 
 /**
  * Foundr API server.
@@ -46,6 +47,7 @@ app.use("/api/categories", categoriesRouter);
 app.use("/api/insights", insightsRouter);
 app.use("/api/entries", entriesRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/reports", reportsRouter);
 
 async function start(): Promise<void> {
   await connectDB();

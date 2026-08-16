@@ -165,7 +165,7 @@ export class FoundrAddEntry extends LitElement {
   static styles = css`
     :host { display: contents; }
     .overlay {
-      position: fixed; inset: 0; background: rgba(28,28,28,0.45);
+      position: fixed; inset: 0; background: var(--overlay, rgba(28,28,28,0.45));
       display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px;
     }
     .modal {
@@ -200,7 +200,7 @@ export class FoundrAddEntry extends LitElement {
     }
     .field input {
       width: 100%; padding: 12px 14px; font-size: 15px; font-family: inherit;
-      background: #fff; border: 1px solid var(--line, #E2DFD7);
+      background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7);
       border-radius: var(--radius-input, 14px); color: var(--ink, #1C1C1C);
     }
     .field input.with-rupee { padding-left: 30px; }
@@ -216,14 +216,14 @@ export class FoundrAddEntry extends LitElement {
     .cat-chip.add { border-style: dashed; color: var(--forest, #2D4A3E); }
 
     .new-cat-row { display: flex; gap: 8px; margin-top: 10px; }
-    .new-cat-row input { flex: 1; padding: 9px 12px; font-size: 14px; font-family: inherit; background: #fff; border: 1px solid var(--line, #E2DFD7); border-radius: 10px; }
+    .new-cat-row input { flex: 1; padding: 9px 12px; font-size: 14px; font-family: inherit; background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7); border-radius: 10px; }
     .new-cat-row input:focus { outline: none; border-color: var(--forest, #2D4A3E); }
     .new-cat-row button {
       padding: 9px 14px; border-radius: 10px; border: none; background: var(--forest, #2D4A3E);
       color: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
     }
 
-    .error { background: #FBEAE9; color: #A8302B; border: 1px solid #F0C5C3; border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
+    .error { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3); border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; }
 
     .actions { display: flex; gap: 10px; margin-top: 24px; }
     button.cancel {
@@ -234,8 +234,10 @@ export class FoundrAddEntry extends LitElement {
     button.save {
       flex: 2; padding: 13px; border-radius: var(--radius-input, 14px); border: none;
       background: var(--forest, #2D4A3E); color: #fff; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    button.save:hover:not(:disabled) { background: var(--forest-deep, #1F3329); }
+    button.save:hover:not(:disabled) { background: var(--forest-deep, #1F3329); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
+    button.save:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     button.save:disabled { opacity: 0.6; cursor: not-allowed; }
   `;
 

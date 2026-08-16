@@ -101,4 +101,17 @@ export interface UnifiedEntry {
 export interface UserSettings {
   userId: string;
   currency: "USD" | "AUD" | "INR" | "EUR" | "GBP" | "CAD" | "SGD";
+  theme: "light" | "dark" | "royal" | "ocean" | "sunset" | "slate";
+  businessName: string;
+  gender: "male" | "female" | "non_binary" | "prefer_not_to_say" | "";
+}
+
+/**
+ * Response from GET /api/reports/margins — a cash-basis income breakdown,
+ * not a formal balance sheet (Foundr doesn't track assets/liabilities).
+ */
+export interface MarginsReport {
+  revenue: CategorySlice[];
+  expenses: CategorySlice[];
+  metrics: DashboardMetrics;
 }

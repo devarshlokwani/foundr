@@ -5,10 +5,13 @@ import {
   signUpWithEmail,
   verifyEmailCode,
   signInWithGoogle,
+  requestPasswordReset,
+  confirmPasswordResetCode,
+  setNewPassword,
 } from "./auth.service";
 
 type Mode = "sign-in" | "sign-up";
-type Phase = "form" | "verify";
+type Phase = "form" | "verify" | "forgot" | "reset-code" | "reset-password";
 
 /**
  * <foundr-auth mode="sign-in" | "sign-up">
@@ -28,6 +31,7 @@ export class FoundrAuth extends LitElement {
   @state() private phase: Phase = "form";
   @state() private email = "";
   @state() private password = "";
+  @state() private newPassword = "";
   @state() private code = "";
   @state() private loading = false;
   @state() private error = "";
@@ -104,6 +108,73 @@ export class FoundrAuth extends LitElement {
     this._onSuccess();
   }
 
+  private _startForgotPassword(): void {
+    this.phase = "forgot";
+    this.error = "";
+    this.code = "";
+    this.newPassword = "";
+  }
+
+  private _backToSignIn(): void {
+    this.phase = "form";
+    this.error = "";
+    this.code = "";
+    this.newPassword = "";
+  }
+
+  private async _submitForgotEmail(e: Event): Promise<void> {
+    e.preventDefault();
+    if (!this.email.includes("@")) {
+      this.error = "Enter a valid email address.";
+      return;
+    }
+    this.loading = true;
+    this.error = "";
+    const result = await requestPasswordReset(this.email);
+    this.loading = false;
+
+    if (!result.ok) {
+      this.error = result.error ?? "Something went wrong.";
+      return;
+    }
+    this.phase = "reset-code";
+  }
+
+  private async _submitResetCode(e: Event): Promise<void> {
+    e.preventDefault();
+    if (this.code.trim().length < 4) {
+      this.error = "Enter the code from your email.";
+      return;
+    }
+    this.loading = true;
+    this.error = "";
+    const result = await confirmPasswordResetCode(this.code.trim());
+    this.loading = false;
+
+    if (!result.ok) {
+      this.error = result.error ?? "That code didn't work.";
+      return;
+    }
+    this.phase = "reset-password";
+  }
+
+  private async _submitNewPassword(e: Event): Promise<void> {
+    e.preventDefault();
+    if (this.newPassword.length < 8) {
+      this.error = "Password must be at least 8 characters.";
+      return;
+    }
+    this.loading = true;
+    this.error = "";
+    const result = await setNewPassword(this.newPassword);
+    this.loading = false;
+
+    if (!result.ok) {
+      this.error = result.error ?? "Something went wrong.";
+    }
+    // On success, setNewPassword() navigates to /dashboard itself.
+  }
+
   private async _google(): Promise<void> {
     this.loading = true;
     this.error = "";
@@ -171,9 +242,10 @@ export class FoundrAuth extends LitElement {
       width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
       background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
       border-radius: var(--radius-input, 14px); padding: 13px; font-size: 15px; font-weight: 500;
-      color: var(--ink, #1C1C1C);
+      color: var(--ink, #1C1C1C); transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease, border-color 0.15s ease;
     }
-    .google-btn:hover { background: #fff; border-color: var(--ink-soft, #6B6B66); }
+    .google-btn:hover { background: #fff; border-color: var(--ink-soft, #6B6B66); transform: translate(-4px, -4px); box-shadow: 4px 4px 0 var(--sage, #8AAF9A); }
+    .google-btn:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .google-icon { width: 18px; height: 18px; }
 
     .divider { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--ink-soft, #6B6B66); font-size: 13px; }
@@ -181,6 +253,12 @@ export class FoundrAuth extends LitElement {
 
     .field { margin-bottom: 16px; }
     .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 7px; }
+    .field-head { display: flex; align-items: center; justify-content: space-between; }
+    .field-head label { margin-bottom: 7px; }
+    .link-btn {
+      background: none; color: var(--forest, #2D4A3E); font-weight: 500; font-size: 13px;
+      padding: 0; margin-bottom: 7px; text-decoration: underline; text-underline-offset: 2px;
+    }
     .field input {
       width: 100%; padding: 12px 14px; font-size: 15px; font-family: inherit;
       background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
@@ -196,9 +274,10 @@ export class FoundrAuth extends LitElement {
     .submit-btn {
       width: 100%; background: var(--forest, #2D4A3E); color: #fff;
       border-radius: var(--radius-input, 14px); padding: 14px; font-size: 15px; font-weight: 500;
-      margin-top: 4px;
+      margin-top: 4px; transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    .submit-btn:hover:not(:disabled) { background: var(--forest-deep, #1F3329); }
+    .submit-btn:hover:not(:disabled) { background: var(--forest-deep, #1F3329); transform: translate(-4px, -4px); box-shadow: 4px 4px 0 var(--sage, #8AAF9A); }
+    .submit-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
 
     .error {
       background: #FBEAE9; color: #A8302B; border: 1px solid #F0C5C3;
@@ -283,7 +362,12 @@ export class FoundrAuth extends LitElement {
             />
           </div>
           <div class="field">
-            <label for="password">Password</label>
+            <div class="field-head">
+              <label for="password">Password</label>
+              ${!this.isSignUp
+                ? html`<button type="button" class="link-btn" @click=${this._startForgotPassword}>Forgot password?</button>`
+                : ""}
+            </div>
             <input
               id="password" type="password"
               placeholder=${this.isSignUp ? "At least 8 characters" : "Your password"}
@@ -339,13 +423,101 @@ export class FoundrAuth extends LitElement {
     `;
   }
 
+  private _renderForgot(): TemplateResult {
+    return html`
+      <div class="form-card">
+        <h2>Reset your password</h2>
+        <p class="form-sub">
+          Enter your account email. If you've added a recovery email in Settings, you can use that
+          instead if you no longer have access to your primary one.
+        </p>
+
+        ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ""}
+
+        <form @submit=${this._submitForgotEmail}>
+          <div class="field">
+            <label for="forgotEmail">Email</label>
+            <input
+              id="forgotEmail" type="email" placeholder="you@example.com" autocomplete="email"
+              .value=${this.email} @input=${(e: Event) => this._onInput("email", e)} ?disabled=${this.loading}
+            />
+          </div>
+          <button class="submit-btn" type="submit" ?disabled=${this.loading}>
+            ${this.loading ? "Sending…" : "Send reset code"}
+          </button>
+        </form>
+
+        <button class="back-link" @click=${this._backToSignIn}>Back to sign in</button>
+      </div>
+    `;
+  }
+
+  private _renderResetCode(): TemplateResult {
+    return html`
+      <div class="form-card">
+        <h2>Check your email</h2>
+        <p class="verify-hint">
+          We sent a code to <strong>${this.email}</strong>. Enter it below to continue.
+        </p>
+
+        ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ""}
+
+        <form @submit=${this._submitResetCode}>
+          <div class="field">
+            <label for="resetCode">Code</label>
+            <input
+              id="resetCode" class="code-input" type="text" inputmode="numeric" placeholder="000000"
+              maxlength="6" .value=${this.code} @input=${(e: Event) => this._onInput("code", e)} ?disabled=${this.loading}
+            />
+          </div>
+          <button class="submit-btn" type="submit" ?disabled=${this.loading}>
+            ${this.loading ? "Verifying…" : "Continue"}
+          </button>
+        </form>
+
+        <button class="back-link" @click=${this._backToSignIn}>Back to sign in</button>
+      </div>
+    `;
+  }
+
+  private _renderResetPassword(): TemplateResult {
+    return html`
+      <div class="form-card">
+        <h2>Set a new password</h2>
+        <p class="form-sub">Choose a new password for your account.</p>
+
+        ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ""}
+
+        <form @submit=${this._submitNewPassword}>
+          <div class="field">
+            <label for="newPassword">New password</label>
+            <input
+              id="newPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password"
+              .value=${this.newPassword}
+              @input=${(e: Event) => { this.newPassword = (e.target as HTMLInputElement).value; if (this.error) this.error = ""; }}
+              ?disabled=${this.loading}
+            />
+          </div>
+          <button class="submit-btn" type="submit" ?disabled=${this.loading}>
+            ${this.loading ? "Saving…" : "Reset password & sign in"}
+          </button>
+        </form>
+      </div>
+    `;
+  }
+
   render(): TemplateResult {
+    let body: TemplateResult;
+    if (this.phase === "verify") body = this._renderVerify();
+    else if (this.phase === "forgot") body = this._renderForgot();
+    else if (this.phase === "reset-code") body = this._renderResetCode();
+    else if (this.phase === "reset-password") body = this._renderResetPassword();
+    else body = this._renderForm();
+
     return html`
       <div class="layout">
         ${this._renderBrandPanel()}
-        <div class="form-panel">
-          ${this.phase === "verify" ? this._renderVerify() : this._renderForm()}
-        </div>
+        <div class="form-panel">${body}</div>
       </div>
     `;
   }
