@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { ExpenseModel } from "../models/Expense.js";
 import { InvestmentModel } from "../models/Investment.js";
+import { DrawModel } from "../models/Draw.js";
+import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { computeMetrics, type Entry } from "../lib/metrics.js";
 
@@ -20,14 +22,21 @@ router.use(requireUser);
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
 
-  const [entries, investments] = await Promise.all([
+  const [entries, investments, draws, debts] = await Promise.all([
     ExpenseModel.find({ userId }).select("type amount date").lean(),
     InvestmentModel.find({ userId }).select("amount").lean(),
+    DrawModel.find({ userId }).select("amount").lean(),
+    DebtModel.find({ userId }).select("type amount").lean(),
   ]);
 
   const totalInvested = investments.reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
+  const totalDraws = draws.reduce((sum, d) => sum + (d.amount ?? 0), 0);
+  const netBorrowed = debts.reduce(
+    (sum, d) => sum + (d.type === "borrow" ? d.amount : -d.amount),
+    0
+  );
 
-  const metrics = computeMetrics(entries as unknown as Entry[], totalInvested);
+  const metrics = computeMetrics(entries as unknown as Entry[], totalInvested, totalDraws, netBorrowed);
   res.json(metrics);
 });
 

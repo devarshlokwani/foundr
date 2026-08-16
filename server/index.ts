@@ -12,6 +12,8 @@ import insightsRouter from "./routes/insights.js";
 import entriesRouter from "./routes/entries.js";
 import settingsRouter from "./routes/settings.js";
 import reportsRouter from "./routes/reports.js";
+import drawsRouter from "./routes/draws.js";
+import debtsRouter from "./routes/debts.js";
 
 /**
  * Foundr API server.
@@ -48,6 +50,8 @@ app.use("/api/insights", insightsRouter);
 app.use("/api/entries", entriesRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/draws", drawsRouter);
+app.use("/api/debts", debtsRouter);
 
 async function start(): Promise<void> {
   await connectDB();

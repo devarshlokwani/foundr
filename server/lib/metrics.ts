@@ -11,6 +11,11 @@
  * - Net position: total invested minus what's come back as income.
  * - Personal ROI: income earned relative to the founder's own investment.
  * - Gross margin: profit as a share of revenue.
+ *
+ * totalDraws and netBorrowed (borrowed minus repaid) only affect
+ * cashRemaining (and so runway) — deliberately not folded into burn,
+ * netPosition, ROI, or gross margin, so what "burn rate" has always meant
+ * doesn't change now that draws and debt exist.
  */
 
 export interface Entry {
@@ -42,10 +47,15 @@ function monthsSpanned(dates: Date[]): number {
 
 /**
  * Compute all dashboard metrics from a founder's entries and investments.
- * `totalInvested` is passed in separately since investments live in their
- * own collection.
+ * `totalInvested`, `totalDraws`, and `netBorrowed` are passed in separately
+ * since investments, draws, and debt each live in their own collection.
  */
-export function computeMetrics(entries: Entry[], totalInvested: number): Metrics {
+export function computeMetrics(
+  entries: Entry[],
+  totalInvested: number,
+  totalDraws = 0,
+  netBorrowed = 0
+): Metrics {
   let totalExpenses = 0;
   let totalIncome = 0;
   const expenseDates: Date[] = [];
@@ -65,8 +75,9 @@ export function computeMetrics(entries: Entry[], totalInvested: number): Metrics
   const months = monthsSpanned(expenseDates);
   const monthlyBurn = netOut / months;
 
-  // Cash remaining = what was put in, minus net spent.
-  const cashRemaining = totalInvested + totalIncome - totalExpenses;
+  // Cash remaining = what was put in, minus net spent, minus what the
+  // founder drew out, plus what's currently borrowed (net of repayments).
+  const cashRemaining = totalInvested + totalIncome - totalExpenses - totalDraws + netBorrowed;
 
   // Runway = months of cash left at current burn. Null if not burning.
   const runwayMonths = monthlyBurn > 0 ? cashRemaining / monthlyBurn : null;

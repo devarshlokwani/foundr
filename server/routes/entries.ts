@@ -1,17 +1,18 @@
 import { Router, type Request, type Response } from "express";
 import { ExpenseModel } from "../models/Expense.js";
 import { InvestmentModel } from "../models/Investment.js";
+import { DrawModel } from "../models/Draw.js";
+import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 
 /**
  * Entries API — a unified, read-only timeline of everything the founder
- * has recorded: expenses, revenue, and investments, merged and sorted by
- * date (newest first).
+ * has recorded: expenses, revenue, investments, draws, and debt, merged
+ * and sorted by date (newest first).
  *
  * Each item is normalised to a common shape so the frontend can render one
- * list. `source` carries the collection it came from ("transaction" or
- * "investment") plus the original id, so edit/delete can route to the right
- * endpoint.
+ * list. `source` carries the collection it came from, plus the original
+ * id, so edit/delete can route to the right endpoint.
  *
  * Routes:
  *   GET /api/entries
@@ -22,8 +23,8 @@ router.use(requireUser);
 
 interface UnifiedEntry {
   id: string;
-  source: "transaction" | "investment";
-  kind: "expense" | "revenue" | "investment";
+  source: "transaction" | "investment" | "draw" | "debt";
+  kind: "expense" | "revenue" | "investment" | "draw" | "debt" | "repayment";
   amount: number;
   label: string;
   note: string;
@@ -33,9 +34,11 @@ interface UnifiedEntry {
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
 
-  const [txns, invs] = await Promise.all([
+  const [txns, invs, draws, debts] = await Promise.all([
     ExpenseModel.find({ userId }).lean(),
     InvestmentModel.find({ userId }).lean(),
+    DrawModel.find({ userId }).lean(),
+    DebtModel.find({ userId }).lean(),
   ]);
 
   const unified: UnifiedEntry[] = [];
@@ -61,6 +64,30 @@ router.get("/", async (req: Request, res: Response) => {
       label: inv.source ?? "Personal savings",
       note: inv.note ?? "",
       date: new Date(inv.date).toISOString(),
+    });
+  }
+
+  for (const d of draws) {
+    unified.push({
+      id: String(d._id),
+      source: "draw",
+      kind: "draw",
+      amount: d.amount,
+      label: d.category,
+      note: d.note ?? "",
+      date: new Date(d.date).toISOString(),
+    });
+  }
+
+  for (const d of debts) {
+    unified.push({
+      id: String(d._id),
+      source: "debt",
+      kind: d.type === "borrow" ? "debt" : "repayment",
+      amount: d.amount,
+      label: d.source ?? "Bank loan",
+      note: d.note ?? "",
+      date: new Date(d.date).toISOString(),
     });
   }
 

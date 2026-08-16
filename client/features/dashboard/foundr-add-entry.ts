@@ -3,7 +3,8 @@ import { customElement, property, state } from "lit/decorators.js";
 import { apiGet, apiPost } from "../../shared/lib/api";
 import { currencySymbol } from "../../shared/lib/format";
 
-type EntryKind = "expense" | "revenue" | "investment";
+type EntryKind = "expense" | "revenue" | "investment" | "draw" | "debt";
+type DebtDirection = "borrow" | "repay";
 
 interface Category {
   _id: string;
@@ -20,17 +21,19 @@ function todayStr(): string {
 
 /**
  * <foundr-add-entry>
- * Modal for adding an Expense, Revenue, or Investment, with the founder's
- * own custom categories.
+ * Modal for adding an Expense, Revenue, Investment, Draw, or Debt entry,
+ * with the founder's own custom categories.
  *
- * - Three rigid top-level kinds (the money-flows the metrics depend on),
- *   each with a one-line helper so the user always knows what & why.
+ * - Five rigid top-level kinds (the money-flows the metrics — and the
+ *   balance sheet — depend on), each with a one-line helper so the user
+ *   always knows what & why.
  * - Categories are fully personal: fetched per-user from /api/categories,
  *   and the user can add their own inline ("+ Add your own").
  *
  * Note on data mapping: the UI kind "revenue" maps to the transaction
  * type "income" at the API layer (the backend still stores income/expense).
- * Investments post to /api/investments.
+ * Investments post to /api/investments, Draws to /api/draws, Debt to
+ * /api/debts (with a borrow/repay sub-toggle).
  */
 @customElement("foundr-add-entry")
 export class FoundrAddEntry extends LitElement {
@@ -44,6 +47,13 @@ export class FoundrAddEntry extends LitElement {
   @state() private loading = false;
   @state() private error = "";
 
+  // Expense-only: marks a capital purchase (equipment/tools kept, not
+  // consumed) so it becomes a Fixed Asset on the balance sheet instead of
+  // reducing retained earnings.
+  @state() private isCapital = false;
+  // Debt-only: which direction this entry moves the outstanding balance.
+  @state() private debtDirection: DebtDirection = "borrow";
+
   @state() private categories: Category[] = [];
   @state() private catsLoaded = false;
   @state() private addingCategory = false;
@@ -54,6 +64,8 @@ export class FoundrAddEntry extends LitElement {
     expense: "Money the business spends to operate — ads, tools, salaries.",
     revenue: "Money the business earns from customers.",
     investment: "Money you put in from your own pocket to fund the business.",
+    draw: "Money you take out of the business for personal use.",
+    debt: "Money borrowed for the business, or a repayment on what you owe.",
   };
 
   connectedCallback(): void {
@@ -94,6 +106,8 @@ export class FoundrAddEntry extends LitElement {
     this.date = todayStr();
     this.error = "";
     this.kind = "expense";
+    this.isCapital = false;
+    this.debtDirection = "borrow";
     this.addingCategory = false;
     this.newCategoryName = "";
   }
@@ -142,6 +156,21 @@ export class FoundrAddEntry extends LitElement {
           note: this.note,
           date: this.date,
         });
+      } else if (this.kind === "draw") {
+        await apiPost("/draws", {
+          amount: amountNum,
+          category: this.category,
+          note: this.note,
+          date: this.date,
+        });
+      } else if (this.kind === "debt") {
+        await apiPost("/debts", {
+          type: this.debtDirection,
+          amount: amountNum,
+          source: this.category,
+          note: this.note,
+          date: this.date,
+        });
       } else {
         await apiPost("/transactions", {
           // revenue maps to the API's "income" type
@@ -150,6 +179,7 @@ export class FoundrAddEntry extends LitElement {
           category: this.category,
           note: this.note,
           date: this.date,
+          isCapital: this.kind === "expense" ? this.isCapital : undefined,
         });
       }
       this.dispatchEvent(new CustomEvent("entry-added", { bubbles: true, composed: true }));
@@ -182,14 +212,28 @@ export class FoundrAddEntry extends LitElement {
     }
     .close-x:hover { background: rgba(45,74,62,0.07); }
 
-    .kind-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+    .kind-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
     .kind-tab {
-      flex: 1; padding: 10px; border-radius: 12px; border: 1px solid var(--line, #E2DFD7);
+      flex: 1 1 28%; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line, #E2DFD7);
       background: transparent; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500;
       color: var(--ink-soft, #6B6B66); transition: all 0.15s ease;
     }
     .kind-tab.active { background: var(--forest, #2D4A3E); color: #fff; border-color: var(--forest, #2D4A3E); }
-    .helper { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 20px; line-height: 1.45; }
+    .helper { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 14px; line-height: 1.45; }
+
+    .debt-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
+    .debt-pill {
+      flex: 1; padding: 9px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--line, #E2DFD7);
+      background: transparent; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
+      color: var(--ink-soft, #6B6B66); transition: all 0.15s ease;
+    }
+    .debt-pill.active { background: var(--accent-purple-bg, #EAE6F3); border-color: var(--accent-purple, #5B4B8A); color: var(--accent-purple, #5B4B8A); }
+
+    .capital-check {
+      display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+      margin: -6px 0 16px; font-size: 12.5px; color: var(--ink-soft, #6B6B66); line-height: 1.4;
+    }
+    .capital-check input { margin-top: 2px; accent-color: var(--forest, #2D4A3E); flex-shrink: 0; }
 
     .field { margin-bottom: 16px; }
     .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 7px; }
@@ -242,7 +286,7 @@ export class FoundrAddEntry extends LitElement {
   `;
 
   private _label(): string {
-    return this.kind === "investment" ? "Source" : "Category";
+    return this.kind === "investment" || this.kind === "debt" ? "Source" : "Category";
   }
 
   render(): TemplateResult {
@@ -260,8 +304,21 @@ export class FoundrAddEntry extends LitElement {
             <button class="kind-tab ${this.kind === "expense" ? "active" : ""}" @click=${() => this._setKind("expense")}>Expense</button>
             <button class="kind-tab ${this.kind === "revenue" ? "active" : ""}" @click=${() => this._setKind("revenue")}>Revenue</button>
             <button class="kind-tab ${this.kind === "investment" ? "active" : ""}" @click=${() => this._setKind("investment")}>Investment</button>
+            <button class="kind-tab ${this.kind === "draw" ? "active" : ""}" @click=${() => this._setKind("draw")}>Draw</button>
+            <button class="kind-tab ${this.kind === "debt" ? "active" : ""}" @click=${() => this._setKind("debt")}>Debt</button>
           </div>
           <p class="helper">${this.helper[this.kind]}</p>
+
+          ${this.kind === "debt"
+            ? html`
+                <div class="debt-toggle">
+                  <button type="button" class="debt-pill ${this.debtDirection === "borrow" ? "active" : ""}"
+                    @click=${() => { this.debtDirection = "borrow"; }}>Borrowed</button>
+                  <button type="button" class="debt-pill ${this.debtDirection === "repay" ? "active" : ""}"
+                    @click=${() => { this.debtDirection = "repay"; }}>Repaid</button>
+                </div>
+              `
+            : ""}
 
           ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ""}
 
@@ -305,6 +362,16 @@ export class FoundrAddEntry extends LitElement {
                   `
                 : ""}
             </div>
+
+            ${this.kind === "expense"
+              ? html`
+                  <label class="capital-check">
+                    <input type="checkbox" .checked=${this.isCapital}
+                      @change=${(e: Event) => { this.isCapital = (e.target as HTMLInputElement).checked; }} />
+                    <span>This is equipment or a tool the business will keep using (not a one-time cost)</span>
+                  </label>
+                `
+              : ""}
 
             <div class="field">
               <label for="date">Date</label>

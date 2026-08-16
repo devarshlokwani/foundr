@@ -19,10 +19,12 @@ const router = Router();
 
 router.use(requireUser);
 
-const DEFAULTS: Record<"expense" | "revenue" | "investment", string[]> = {
+const DEFAULTS: Record<"expense" | "revenue" | "investment" | "draw" | "debt", string[]> = {
   expense: ["Marketing", "Tools / SaaS", "Design"],
   revenue: ["Sales", "Consulting"],
   investment: ["Personal savings", "Family / friends"],
+  draw: ["Personal", "Taxes"],
+  debt: ["Bank loan", "Credit card"],
 };
 
 router.get("/", async (req: Request, res: Response) => {
@@ -46,7 +48,7 @@ router.post("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
   const { kind, name } = req.body;
 
-  if (kind !== "expense" && kind !== "revenue" && kind !== "investment") {
+  if (!["expense", "revenue", "investment", "draw", "debt"].includes(kind)) {
     return res.status(400).json({ error: "Invalid category type." });
   }
   if (!name || typeof name !== "string" || !name.trim()) {

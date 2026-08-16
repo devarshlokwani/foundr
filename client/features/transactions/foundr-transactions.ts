@@ -11,10 +11,10 @@ import "../../shared/components/foundr-mini-loader";
 
 /**
  * <foundr-transactions>
- * A full-page, unified list of every entry — expenses, revenue, and
- * investments — newest first. Supports inline editing (amount + note) and
- * deleting, routing each change to the correct backend collection based on
- * the entry's `source`.
+ * A full-page, unified list of every entry — expenses, revenue,
+ * investments, draws, and debt — newest first. Supports inline editing
+ * (amount + note) and deleting, routing each change to the correct
+ * backend collection based on the entry's `source`.
  *
  * Auth-guarded like the dashboard. Reachable at /transactions.
  */
@@ -72,7 +72,16 @@ export class FoundrTransactions extends LitElement {
   }
 
   private _path(e: UnifiedEntry): string {
-    return e.source === "investment" ? `/investments/${e.id}` : `/transactions/${e.id}`;
+    switch (e.source) {
+      case "investment": return `/investments/${e.id}`;
+      case "draw": return `/draws/${e.id}`;
+      case "debt": return `/debts/${e.id}`;
+      default: return `/transactions/${e.id}`;
+    }
+  }
+
+  private _isOutflow(kind: UnifiedEntry["kind"]): boolean {
+    return kind === "expense" || kind === "draw" || kind === "repayment";
   }
 
   private _startEdit(e: UnifiedEntry): void {
@@ -154,20 +163,20 @@ export class FoundrTransactions extends LitElement {
       border-radius: 16px; padding: 16px 18px; display: flex; align-items: center; gap: 14px;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .row.expense { border-left-color: var(--danger, #D9534F); }
+    .row.expense, .row.draw { border-left-color: var(--danger, #D9534F); }
     .row.revenue { border-left-color: var(--forest, #2D4A3E); }
-    .row.investment { border-left-color: var(--accent-purple, #5B4B8A); }
+    .row.investment, .row.debt, .row.repayment { border-left-color: var(--accent-purple, #5B4B8A); }
     .row:hover { box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
 
     .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
-    .badge.expense { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
+    .badge.expense, .badge.draw { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
     .badge.revenue { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); }
-    .badge.investment { background: var(--accent-purple-bg, #EAE6F3); color: var(--accent-purple, #5B4B8A); }
+    .badge.investment, .badge.debt, .badge.repayment { background: var(--accent-purple-bg, #EAE6F3); color: var(--accent-purple, #5B4B8A); }
     .info { flex: 1; min-width: 0; }
     .info .label { font-size: 15px; font-weight: 500; }
     .info .meta { font-size: 13px; color: var(--ink-soft, #6B6B66); margin-top: 2px; }
     .amount { font-size: 16px; font-weight: 600; white-space: nowrap; }
-    .amount.expense { color: var(--danger, #A8302B); }
+    .amount.expense, .amount.draw { color: var(--danger, #A8302B); }
     .amount.revenue { color: var(--forest, #2D4A3E); }
     .row-actions { display: flex; gap: 6px; }
     .icon-btn {
@@ -237,7 +246,7 @@ export class FoundrTransactions extends LitElement {
           <div class="label">${e.label}</div>
           <div class="meta">${this._date(e.date)}${e.note ? ` · ${e.note}` : ""}</div>
         </div>
-        <div class="amount ${e.kind}">${e.kind === "expense" ? "−" : "+"}${this._money(e.amount)}</div>
+        <div class="amount ${e.kind}">${this._isOutflow(e.kind) ? "−" : "+"}${this._money(e.amount)}</div>
         <div class="row-actions">
           <button class="icon-btn" title="Edit" @click=${() => this._startEdit(e)} ?disabled=${busy}><i class="ti ti-pencil" aria-hidden="true"></i></button>
           <button class="icon-btn danger" title="Delete" @click=${() => this._delete(e)} ?disabled=${busy}><i class="ti ti-trash" aria-hidden="true"></i></button>
@@ -252,7 +261,7 @@ export class FoundrTransactions extends LitElement {
 
       <div class="page">
         <h1>All entries</h1>
-        <p class="sub">Every expense, revenue, and investment you've tracked.</p>
+        <p class="sub">Every expense, revenue, investment, draw, and debt entry you've tracked.</p>
 
         ${this.error ? html`<div class="error-box">${this.error}</div>` : ""}
 

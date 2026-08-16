@@ -86,11 +86,11 @@ export interface DashboardInsights {
   cashSeries: CashPoint[];
 }
 
-/** A unified entry from GET /api/entries (transaction or investment). */
+/** A unified entry from GET /api/entries. */
 export interface UnifiedEntry {
   id: string;
-  source: "transaction" | "investment";
-  kind: "expense" | "revenue" | "investment";
+  source: "transaction" | "investment" | "draw" | "debt";
+  kind: "expense" | "revenue" | "investment" | "draw" | "debt" | "repayment";
   amount: number;
   label: string;
   note: string;
@@ -107,11 +107,22 @@ export interface UserSettings {
 }
 
 /**
- * Response from GET /api/reports/margins — a cash-basis income breakdown,
- * not a formal balance sheet (Foundr doesn't track assets/liabilities).
+ * Response from GET /api/reports/margins — revenue by category, expenses
+ * by category, and the full metric summary.
  */
 export interface MarginsReport {
   revenue: CategorySlice[];
   expenses: CategorySlice[];
   metrics: DashboardMetrics;
+}
+
+/**
+ * Response from GET /api/reports/balance-sheet. Assets always equals
+ * Liabilities + Equity — see server/lib/balanceSheet.ts for the identity.
+ */
+export interface BalanceSheet {
+  assets: { cash: number; fixedAssets: number; total: number };
+  liabilities: { debt: number; total: number };
+  equity: { invested: number; draws: number; retainedEarnings: number; total: number };
+  balanced: boolean;
 }

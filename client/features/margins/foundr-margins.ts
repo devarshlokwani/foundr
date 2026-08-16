@@ -2,7 +2,7 @@ import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getClerk } from "../auth/auth.service";
 import { apiGet } from "../../shared/lib/api";
-import type { MarginsReport, CategorySlice } from "../../shared/lib/types";
+import type { MarginsReport, CategorySlice, BalanceSheet } from "../../shared/lib/types";
 import { formatMoney, getCurrency } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { downloadCsv } from "../../shared/lib/csv";
@@ -10,12 +10,14 @@ import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-page-loader";
 import "../../shared/components/foundr-mini-loader";
 
+type Section = "margins" | "balance-sheet";
+
 /**
  * <foundr-margins>
- * A cash-basis income breakdown: revenue by category, expenses by
- * category, and the net margin left over — not a formal balance sheet
- * (Foundr doesn't track assets or liabilities, only cash flow and the
- * founder's own investment). Exportable as CSV with one click.
+ * Financial reports, two views: Margins (a cash-basis income breakdown —
+ * revenue by category, expenses by category, net margin) and Balance
+ * Sheet (Assets = Liabilities + Equity, made possible by Draws and Debt).
+ * Both exportable as CSV with one click.
  *
  * Auth-guarded like the dashboard. Reachable at /margins.
  */
@@ -30,6 +32,8 @@ export class FoundrMargins extends LitElement {
   @state() private loaderVisible = false;
   @state() private error = "";
   @state() private report: MarginsReport | null = null;
+  @state() private balanceSheet: BalanceSheet | null = null;
+  @state() private section: Section = "margins";
 
   private _escalateTimer?: ReturnType<typeof setTimeout>;
 
@@ -59,10 +63,15 @@ export class FoundrMargins extends LitElement {
 
   private async _load(): Promise<void> {
     try {
-      this.report = await apiGet<MarginsReport>("/reports/margins");
+      const [report, balanceSheet] = await Promise.all([
+        apiGet<MarginsReport>("/reports/margins"),
+        apiGet<BalanceSheet>("/reports/balance-sheet"),
+      ]);
+      this.report = report;
+      this.balanceSheet = balanceSheet;
       this.error = "";
     } catch (err) {
-      this.error = err instanceof Error ? err.message : "Couldn't load your margins.";
+      this.error = err instanceof Error ? err.message : "Couldn't load your reports.";
     } finally {
       this.loading = false;
     }
@@ -114,6 +123,35 @@ export class FoundrMargins extends LitElement {
     downloadCsv(`foundr-margins-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   }
 
+  private _exportBalanceSheetCsv(): void {
+    const b = this.balanceSheet;
+    if (!b) return;
+
+    const rows: (string | number)[][] = [
+      ["Foundr — Balance sheet"],
+      [`Generated ${new Date().toLocaleDateString()}`, `Currency: ${getCurrency()}`],
+      [],
+      ["Assets"],
+      ["Cash remaining", b.assets.cash],
+      ["Fixed assets", b.assets.fixedAssets],
+      ["Total assets", b.assets.total],
+      [],
+      ["Liabilities"],
+      ["Debt", b.liabilities.debt],
+      ["Total liabilities", b.liabilities.total],
+      [],
+      ["Equity"],
+      ["Invested", b.equity.invested],
+      ["Draws", -b.equity.draws],
+      ["Retained earnings", b.equity.retainedEarnings],
+      ["Total equity", b.equity.total],
+      [],
+      ["Check: Assets = Liabilities + Equity", b.balanced ? "Balanced" : "Not balanced"],
+    ];
+
+    downloadCsv(`foundr-balance-sheet-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  }
+
   static styles = css`
     :host {
       display: block;
@@ -133,9 +171,16 @@ export class FoundrMargins extends LitElement {
     .ti-report-money:before { content: "\\eecd"; }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
-    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; flex-wrap: wrap; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .greeting-sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0; }
+
+    .section-tabs { display: flex; gap: 6px; background: var(--surface-alt, #F2EFE8); padding: 4px; border-radius: var(--radius-pill, 999px); width: fit-content; margin-bottom: 24px; }
+    .section-tab {
+      padding: 8px 18px; border-radius: var(--radius-pill, 999px); background: transparent; border: none;
+      font-size: 13.5px; font-weight: 500; color: var(--ink-soft, #6B6B66); transition: background 0.2s ease, color 0.2s ease;
+    }
+    .section-tab.active { background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C); box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
 
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
     .export-btn {
@@ -148,6 +193,7 @@ export class FoundrMargins extends LitElement {
     .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+    .kpi-grid.three { grid-template-columns: repeat(3, 1fr); }
     .kpi {
       background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
       padding: 22px; border: 0.5px solid var(--line, #E2DFD7);
@@ -169,6 +215,9 @@ export class FoundrMargins extends LitElement {
     }
     .card h3 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
     .card .sub { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 20px; }
+
+    .bs-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 0.5px solid var(--line, #E2DFD7); }
+    .bs-row:last-of-type { border-bottom: none; }
 
     .bar-row { margin-bottom: 16px; }
     .bar-row:last-child { margin-bottom: 0; }
@@ -223,22 +272,34 @@ export class FoundrMargins extends LitElement {
   `;
 
   // The header shows immediately — title and subtitle are always static,
-  // and the export button only makes sense once there's a report to export.
+  // the tab switcher and export button only make sense once there's
+  // something to show/export.
   private _renderHeader(): TemplateResult {
+    const ready = !this.loading && !this.error && !this.isEmpty;
     return html`
       <div class="page-head">
         <div>
-          <h1 class="greeting">Margins</h1>
-          <p class="greeting-sub">Where your revenue goes, and what's left over.</p>
+          <h1 class="greeting">Reports</h1>
+          <p class="greeting-sub">Margins and balance sheet, generated automatically from what you track.</p>
         </div>
-        ${!this.loading && !this.error && !this.isEmpty
+        ${ready
           ? html`
-              <button class="export-btn" @click=${this._exportCsv}>
+              <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
                 <i class="ti ti-download" aria-hidden="true"></i>Export CSV
               </button>
             `
           : ""}
       </div>
+      ${ready
+        ? html`
+            <div class="section-tabs">
+              <button class="section-tab ${this.section === "margins" ? "active" : ""}"
+                @click=${() => { this.section = "margins"; }}>Margins</button>
+              <button class="section-tab ${this.section === "balance-sheet" ? "active" : ""}"
+                @click=${() => { this.section = "balance-sheet"; }}>Balance Sheet</button>
+            </div>
+          `
+        : ""}
     `;
   }
 
@@ -316,12 +377,52 @@ export class FoundrMargins extends LitElement {
     `;
   }
 
+  private _renderBalanceSheet(b: BalanceSheet): TemplateResult {
+    return html`
+        <div class="kpi-grid three">
+          <div class="kpi">
+            <div class="kpi-label">Total assets</div>
+            <div class="kpi-value">${this._money(b.assets.total)}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Total liabilities</div>
+            <div class="kpi-value">${this._money(b.liabilities.total)}</div>
+          </div>
+          <div class="kpi dark">
+            <div class="kpi-label">Total equity</div>
+            <div class="kpi-value">${this._money(b.equity.total)}</div>
+            <div class="kpi-hint">${b.balanced ? "Assets = Liabilities + Equity ✓" : "Doesn't balance — check your entries"}</div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <h3>Assets</h3>
+            <p class="sub">What the business owns</p>
+            <div class="bs-row"><span>Cash remaining</span><span>${this._money(b.assets.cash)}</span></div>
+            <div class="bs-row"><span>Fixed assets</span><span>${this._money(b.assets.fixedAssets)}</span></div>
+            <div class="card-total"><span>Total assets</span><span>${this._money(b.assets.total)}</span></div>
+          </div>
+          <div class="card">
+            <h3>Liabilities &amp; Equity</h3>
+            <p class="sub">What the business owes, and what's yours</p>
+            <div class="bs-row"><span>Debt</span><span>${this._money(b.liabilities.debt)}</span></div>
+            <div class="bs-row"><span>Invested</span><span>${this._money(b.equity.invested)}</span></div>
+            <div class="bs-row"><span>Draws</span><span>−${this._money(b.equity.draws)}</span></div>
+            <div class="bs-row"><span>Retained earnings</span><span>${this._money(b.equity.retainedEarnings)}</span></div>
+            <div class="card-total"><span>Total</span><span>${this._money(b.liabilities.total + b.equity.total)}</span></div>
+          </div>
+        </div>
+    `;
+  }
+
   render(): TemplateResult {
     let body: TemplateResult = html``;
     if (!this.loading) {
       if (this.error) body = html`<div class="error-box">${this.error}</div>`;
       else if (this.isEmpty) body = this._renderEmpty();
-      else body = this._renderReport(this.report!);
+      else if (this.section === "margins") body = this._renderReport(this.report!);
+      else body = this._renderBalanceSheet(this.balanceSheet!);
     }
 
     return html`

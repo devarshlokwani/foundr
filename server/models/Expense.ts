@@ -10,6 +10,12 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * `userId` is the Clerk user ID, so each founder only ever sees their own
  * entries. `type` distinguishes money going out (expense) from money
  * coming in (income), which is what lets us compute net position and ROI.
+ *
+ * `isCapital` marks an expense as a capital purchase — equipment or a tool
+ * the business keeps, rather than a consumed operating cost. It still
+ * counts as cash out, but on the balance sheet it becomes a Fixed Asset
+ * instead of reducing retained earnings. Defaults false so it never
+ * changes the meaning of existing entries.
  */
 const expenseSchema = new Schema(
   {
@@ -19,6 +25,7 @@ const expenseSchema = new Schema(
     category: { type: String, required: true, trim: true },
     note: { type: String, trim: true, default: "" },
     date: { type: Date, required: true, default: Date.now },
+    isCapital: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

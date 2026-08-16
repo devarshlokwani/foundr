@@ -25,7 +25,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.post("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const { type, amount, category, note, date } = req.body;
+  const { type, amount, category, note, date, isCapital } = req.body;
 
   if (type !== "expense" && type !== "income") {
     return res.status(400).json({ error: "Type must be 'expense' or 'income'." });
@@ -44,6 +44,7 @@ router.post("/", async (req: Request, res: Response) => {
     category: category.trim(),
     note: typeof note === "string" ? note.trim() : "",
     date: date ? new Date(date) : new Date(),
+    isCapital: type === "expense" && isCapital === true,
   });
   res.status(201).json(created);
 });
