@@ -1,4 +1,5 @@
 import { Clerk } from "@clerk/clerk-js";
+import { clearSessionHeartbeat } from "../../shared/lib/session-guard";
 
 /**
  * Clerk integration for Foundr.
@@ -189,6 +190,7 @@ export async function setNewPassword(password: string): Promise<AuthResult> {
 export async function signOut(): Promise<void> {
   const c = await getClerk();
   await c?.signOut();
+  clearSessionHeartbeat();
 }
 
 /** Get the signed-in Clerk user, guaranteed defined. Null if not signed in. */

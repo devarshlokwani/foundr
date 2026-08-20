@@ -3,10 +3,6 @@ import { customElement, state } from "lit/decorators.js";
 import {
   getClerk,
   updateProfileName,
-  startTOTPEnrollment,
-  confirmTOTPEnrollment,
-  disableMFA,
-  regenerateBackupCodes,
   addSecondaryEmail,
   verifySecondaryEmail,
   removeEmail as removeClerkEmail,
@@ -16,6 +12,7 @@ import { CURRENCIES, formatMoney, setCurrency, type CurrencyCode } from "../../s
 import { THEME_OPTIONS, type ThemeCode } from "../../shared/lib/theme";
 import type { UserSettings, Business } from "../../shared/lib/types";
 import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency } from "../../shared/lib/business";
+import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-coming-soon-modal";
@@ -52,8 +49,9 @@ const NAV_ITEM_GAP = 6;
  * an animated sliding indicator: General (currency, appearance — currency
  * belongs to whichever startup is currently active, not the account),
  * Profile (name, gender — name lives in Clerk, gender in our DB), Security
- * (MFA, backup codes, secondary email — all Clerk), and Startups (switch,
- * rename, or add businesses).
+ * (recovery email, all Clerk — two-factor auth needs a paid Clerk plan
+ * Foundr isn't on yet, so it's marked "coming soon" instead of a broken
+ * setup flow), and Startups (switch, rename, or add businesses).
  */
 @customElement("foundr-settings")
 export class FoundrSettings extends LitElement {
@@ -76,20 +74,6 @@ export class FoundrSettings extends LitElement {
   @state() private profileSaving = false;
   @state() private profileSaved = false;
   @state() private profileError = "";
-
-  // Security — MFA
-  @state() private totpEnabled = false;
-  @state() private mfaEnrolling = false;
-  @state() private totpSecret = "";
-  @state() private mfaCode = "";
-  @state() private mfaSaving = false;
-  @state() private mfaError = "";
-
-  // Security — backup codes
-  @state() private backupCodeEnabled = false;
-  @state() private backupCodes: string[] | null = null;
-  @state() private backupSaving = false;
-  @state() private backupError = "";
 
   // Security — emails
   @state() private emails: EmailRow[] = [];
@@ -118,6 +102,10 @@ export class FoundrSettings extends LitElement {
   private async _init(): Promise<void> {
     const clerk = await getClerk();
     if (!clerk || !clerk.user) {
+      window.location.href = "/sign-in";
+      return;
+    }
+    if (!(await checkSessionFreshness(clerk))) {
       window.location.href = "/sign-in";
       return;
     }
@@ -218,8 +206,6 @@ export class FoundrSettings extends LitElement {
     this.firstName = user.firstName ?? "";
     this.lastName = user.lastName ?? "";
     this.primaryEmail = user.primaryEmailAddress?.emailAddress ?? "";
-    this.totpEnabled = user.totpEnabled;
-    this.backupCodeEnabled = user.backupCodeEnabled;
     this.emails = user.emailAddresses.map((e) => ({
       id: e.id,
       email: e.emailAddress,
@@ -287,69 +273,6 @@ export class FoundrSettings extends LitElement {
     }
   }
 
-  // ---- Security: MFA ----
-
-  private async _startMfa(): Promise<void> {
-    this.mfaSaving = true;
-    this.mfaError = "";
-    const result = await startTOTPEnrollment();
-    this.mfaSaving = false;
-    if (!result.ok) {
-      this.mfaError = result.error ?? "Couldn't start setup.";
-      return;
-    }
-    this.totpSecret = result.secret ?? "";
-    this.mfaEnrolling = true;
-  }
-
-  private async _confirmMfa(): Promise<void> {
-    if (this.mfaCode.trim().length < 6) {
-      this.mfaError = "Enter the 6-digit code from your authenticator app.";
-      return;
-    }
-    this.mfaSaving = true;
-    this.mfaError = "";
-    const result = await confirmTOTPEnrollment(this.mfaCode.trim());
-    this.mfaSaving = false;
-    if (!result.ok) {
-      this.mfaError = result.error ?? "That code didn't work.";
-      return;
-    }
-    this.mfaEnrolling = false;
-    this.mfaCode = "";
-    this.totpSecret = "";
-    await this._refreshFromClerk();
-  }
-
-  private async _disableMfa(): Promise<void> {
-    if (!confirm("Turn off two-factor authentication?")) return;
-    this.mfaSaving = true;
-    this.mfaError = "";
-    const result = await disableMFA();
-    this.mfaSaving = false;
-    if (!result.ok) {
-      this.mfaError = result.error ?? "Couldn't disable it.";
-      return;
-    }
-    this.backupCodes = null;
-    await this._refreshFromClerk();
-  }
-
-  // ---- Security: backup codes ----
-
-  private async _genBackupCodes(): Promise<void> {
-    this.backupSaving = true;
-    this.backupError = "";
-    const result = await regenerateBackupCodes();
-    this.backupSaving = false;
-    if (!result.ok) {
-      this.backupError = result.error ?? "Couldn't generate codes.";
-      return;
-    }
-    this.backupCodes = result.codes ?? [];
-    await this._refreshFromClerk();
-  }
-
   // ---- Security: emails ----
 
   private async _addEmail(): Promise<void> {
@@ -410,10 +333,6 @@ export class FoundrSettings extends LitElement {
     await this._refreshFromClerk();
   }
 
-  private _copy(text: string): void {
-    void navigator.clipboard?.writeText(text);
-  }
-
   static styles = css`
     :host {
       display: block; min-height: 100vh; background: var(--bg, #ECEAE3);
@@ -434,8 +353,6 @@ export class FoundrSettings extends LitElement {
     .ti-adjustments:before { content: "\\ea03"; }
     .ti-user:before { content: "\\eb4d"; }
     .ti-shield-lock:before { content: "\\ed58"; }
-    .ti-shield-check:before { content: "\\eb22"; }
-    .ti-copy:before { content: "\\ea7a"; }
     .ti-mail:before { content: "\\eae5"; }
     .ti-plus:before { content: "\\eb0b"; }
     .ti-trash:before { content: "\\eb41"; }
@@ -529,33 +446,14 @@ export class FoundrSettings extends LitElement {
     }
     .btn-outline-danger:hover { background: var(--danger-bg, #FBEAE9); }
 
-    .mfa-status { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; font-weight: 500; color: var(--positive, #4F8A6B); }
-    .mfa-actions { margin-top: 14px; display: flex; align-items: center; gap: 12px; }
-
-    .secret-box {
-      margin-top: 16px; background: var(--surface-alt, #F2EFE8); border-radius: var(--radius-input, 14px);
-      padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    }
-    .secret-value { font-family: monospace; font-size: 15px; letter-spacing: 0.06em; word-break: break-all; }
-    .copy-btn {
-      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7); color: var(--ink, #1C1C1C);
-      padding: 7px 12px; border-radius: 9px; font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-shrink: 0;
-    }
-    .copy-btn:hover { background: var(--sage-soft, #DDE7E0); }
     .hint { font-size: 13px; color: var(--ink-soft, #6B6B66); margin: 14px 0 0; line-height: 1.5; }
     .code-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
     .code-input { font-family: monospace; letter-spacing: 0.25em; text-align: center; width: 140px; }
     .code-row .field { flex-shrink: 0; }
 
-    .codes-warning {
-      margin-top: 14px; font-size: 13px; color: var(--tone-warn, #C98A2B); font-weight: 500;
-    }
-    .codes-grid {
-      margin-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
-    }
-    .codes-grid code {
-      font-family: monospace; font-size: 13.5px; background: var(--surface-alt, #F2EFE8);
-      padding: 8px 10px; border-radius: 8px; text-align: center;
+    .badge-soon {
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      background: var(--surface-alt, #F2EFE8); color: var(--ink-soft, #6B6B66); padding: 4px 10px; border-radius: 999px;
     }
 
     .email-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
@@ -622,7 +520,6 @@ export class FoundrSettings extends LitElement {
       .layout { flex-direction: column; }
       .settings-nav { width: 100%; }
       .form-grid { grid-template-columns: 1fr; }
-      .codes-grid { grid-template-columns: 1fr; }
     }
   `;
 
@@ -744,76 +641,20 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
+  // Two-factor auth (TOTP) and backup codes need a paid Clerk plan Foundr
+  // isn't on yet — shown as "coming soon" rather than a setup flow that
+  // would fail. See auth.service.ts for the underlying Clerk calls, which
+  // are already written and ready to wire back in once that changes.
   private _renderMfaCard(): TemplateResult {
     return html`
       <div class="card">
-        <div class="setting-info">
-          <div class="label">Authenticator app (2FA)</div>
-          <div class="desc">Add a one-time code from an app like Google Authenticator or 1Password each time you sign in.</div>
+        <div class="setting">
+          <div class="setting-info">
+            <div class="label">Two-factor authentication</div>
+            <div class="desc">A one-time code from an authenticator app each time you sign in, plus backup codes as a fallback.</div>
+          </div>
+          <span class="badge-soon">Coming soon</span>
         </div>
-
-        ${this.totpEnabled
-          ? html`
-              <div class="mfa-status"><i class="ti ti-shield-check" aria-hidden="true"></i>Enabled</div>
-              <div class="mfa-actions">
-                <button class="btn-outline-danger" @click=${this._disableMfa} ?disabled=${this.mfaSaving}>Disable</button>
-              </div>
-            `
-          : this.mfaEnrolling
-            ? html`
-                <div class="secret-box">
-                  <span class="secret-value">${this.totpSecret}</span>
-                  <button class="copy-btn" @click=${() => this._copy(this.totpSecret)}>
-                    <i class="ti ti-copy" aria-hidden="true"></i>Copy
-                  </button>
-                </div>
-                <p class="hint">Enter this key into your authenticator app as a manual setup code, then type the 6-digit code it shows.</p>
-                <div class="code-row">
-                  <div class="field">
-                    <input class="code-input" maxlength="6" inputmode="numeric" placeholder="000000" .value=${this.mfaCode}
-                      @input=${(e: Event) => { this.mfaCode = (e.target as HTMLInputElement).value; }} />
-                  </div>
-                  <button class="btn-save-form" @click=${this._confirmMfa} ?disabled=${this.mfaSaving}>
-                    ${this.mfaSaving ? "Verifying…" : "Verify & enable"}
-                  </button>
-                </div>
-              `
-            : html`
-                <div class="mfa-actions">
-                  <button class="btn-save-form" @click=${this._startMfa} ?disabled=${this.mfaSaving}>Set up authenticator app</button>
-                </div>
-              `}
-
-        <div class="status ${this.mfaError ? "err" : "ok"}">${this.mfaError}</div>
-      </div>
-    `;
-  }
-
-  private _renderBackupCard(): TemplateResult {
-    if (!this.totpEnabled) return html``;
-    return html`
-      <div class="card">
-        <div class="setting-info">
-          <div class="label">Backup codes</div>
-          <div class="desc">One-time codes to sign in if you lose access to your authenticator app.</div>
-        </div>
-        <div class="mfa-actions">
-          <button class="btn-save-form" @click=${this._genBackupCodes} ?disabled=${this.backupSaving}>
-            ${this.backupSaving ? "Generating…" : this.backupCodeEnabled ? "Regenerate backup codes" : "Generate backup codes"}
-          </button>
-        </div>
-        ${this.backupCodes
-          ? html`
-              <div class="codes-warning">Save these now — you won't be able to see them again.</div>
-              <div class="codes-grid">${this.backupCodes.map((c) => html`<code>${c}</code>`)}</div>
-              <div class="mfa-actions">
-                <button class="copy-btn" @click=${() => this._copy(this.backupCodes!.join("\n"))}>
-                  <i class="ti ti-copy" aria-hidden="true"></i>Copy all
-                </button>
-              </div>
-            `
-          : ""}
-        <div class="status ${this.backupError ? "err" : ""}">${this.backupError}</div>
       </div>
     `;
   }
@@ -875,9 +716,8 @@ export class FoundrSettings extends LitElement {
 
   private _renderSecurity(): TemplateResult {
     return html`
-      ${this._renderMfaCard()}
-      ${this._renderBackupCard()}
       ${this._renderEmailCard()}
+      ${this._renderMfaCard()}
     `;
   }
 

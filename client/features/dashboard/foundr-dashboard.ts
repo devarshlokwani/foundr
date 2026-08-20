@@ -12,6 +12,7 @@ import type { FoundrInsights } from "./foundr-insights";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
+import { checkSessionFreshness } from "../../shared/lib/session-guard";
 
 /**
  * <foundr-dashboard>
@@ -44,6 +45,12 @@ export class FoundrDashboard extends LitElement {
 
     // Not configured or not signed in → send to sign-in.
     if (!clerk || !clerk.user) {
+      window.location.href = "/sign-in";
+      return;
+    }
+    // Signed in, but was this tab closed longer than the grace period?
+    // If so, checkSessionFreshness already signed them out.
+    if (!(await checkSessionFreshness(clerk))) {
       window.location.href = "/sign-in";
       return;
     }

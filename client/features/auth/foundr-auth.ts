@@ -1,6 +1,7 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+  getClerk,
   signInWithEmail,
   signUpWithEmail,
   verifyEmailCode,
@@ -9,6 +10,7 @@ import {
   confirmPasswordResetCode,
   setNewPassword,
 } from "./auth.service";
+import { checkSessionFreshness } from "../../shared/lib/session-guard";
 
 type Mode = "sign-in" | "sign-up";
 type Phase = "form" | "verify" | "forgot" | "reset-code" | "reset-password";
@@ -35,6 +37,28 @@ export class FoundrAuth extends LitElement {
   @state() private code = "";
   @state() private loading = false;
   @state() private error = "";
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    void this._checkExistingSession();
+  }
+
+  /**
+   * Clerk persists a session across browser restarts, so a founder who
+   * closed the tab and came straight back to /sign-in would otherwise hit
+   * Clerk's own "already signed in" error the moment they submit the
+   * form. If that session is still within the tab-close grace period,
+   * skip the form entirely and go straight to the dashboard — genuinely
+   * still logged in. If it's gone stale, checkSessionFreshness signs them
+   * out here so the form underneath behaves normally.
+   */
+  private async _checkExistingSession(): Promise<void> {
+    const clerk = await getClerk();
+    if (!clerk || !clerk.user) return;
+    if (await checkSessionFreshness(clerk)) {
+      window.location.href = "/dashboard";
+    }
+  }
 
   private get isSignUp(): boolean {
     return this.mode === "sign-up";

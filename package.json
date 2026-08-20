@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit",
     "server": "tsx watch server/index.ts",
     "server:build": "tsc -p server/tsconfig.json",
+    "reset-onboarding": "tsx server/dev/reset-onboarding.ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."
   },

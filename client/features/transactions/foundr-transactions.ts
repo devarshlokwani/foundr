@@ -6,6 +6,7 @@ import type { UnifiedEntry } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
+import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 
@@ -38,6 +39,10 @@ export class FoundrTransactions extends LitElement {
   private async _init(): Promise<void> {
     const clerk = await getClerk();
     if (!clerk || !clerk.user) {
+      window.location.href = "/sign-in";
+      return;
+    }
+    if (!(await checkSessionFreshness(clerk))) {
       window.location.href = "/sign-in";
       return;
     }

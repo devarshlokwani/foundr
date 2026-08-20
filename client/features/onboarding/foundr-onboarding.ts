@@ -20,17 +20,21 @@ const CARD_COUNT = 6;
  * <foundr-onboarding>
  * The one-time welcome wizard, shown the moment a founder finishes
  * signing up and never again (gated by `UserSettings.onboarded`). Collects
- * their name, their first business's name, gender, and a security
- * preference, then creates that first Business and hands off to the
+ * their name, their first business's name, gender, and whether they want
+ * a recovery email, then creates that first Business and hands off to the
  * dashboard — everything it collects writes straight into the same Clerk
  * fields / UserSettings / Business records Settings itself reads, so
  * there's no separate store to keep in sync.
  *
+ * Two-factor authentication isn't offered here — it needs a paid Clerk
+ * plan Foundr isn't on yet, so Settings → Security marks it "coming soon"
+ * rather than exposing a setup flow that would fail.
+ *
  * Dispatches `onboarding-done` with `{ businessId, goToSecurity }` once
- * finished — the security card's answers don't enroll MFA or add a
- * recovery email here (those need live verification steps that don't fit
- * a wizard card); saying yes to either just routes into the real flows
- * already built in Settings → Security right after this closes.
+ * finished — saying yes to the recovery email doesn't add it here (that
+ * needs a live verification step that doesn't fit a wizard card); it just
+ * routes into the real flow already built in Settings → Security right
+ * after this closes.
  */
 @customElement("foundr-onboarding")
 export class FoundrOnboarding extends LitElement {
@@ -40,7 +44,6 @@ export class FoundrOnboarding extends LitElement {
   @state() private businessName = "";
   @state() private gender: Gender = "";
   @state() private wantsRecoveryEmail = false;
-  @state() private wants2FA = false;
   @state() private saving = false;
   @state() private error = "";
 
@@ -91,7 +94,7 @@ export class FoundrOnboarding extends LitElement {
 
       this.dispatchEvent(
         new CustomEvent("onboarding-done", {
-          detail: { businessId: business._id, goToSecurity: this.wantsRecoveryEmail || this.wants2FA },
+          detail: { businessId: business._id, goToSecurity: this.wantsRecoveryEmail },
           bubbles: true,
           composed: true,
         })
@@ -250,16 +253,6 @@ export class FoundrOnboarding extends LitElement {
             <div class="toggle-pill">
               <button class="${this.wantsRecoveryEmail ? "active" : ""}" @click=${() => { this.wantsRecoveryEmail = true; }}>Yes</button>
               <button class="${!this.wantsRecoveryEmail ? "active" : ""}" @click=${() => { this.wantsRecoveryEmail = false; }}>Skip</button>
-            </div>
-          </div>
-          <div class="choice-row">
-            <div>
-              <div class="label">Two-factor authentication</div>
-              <div class="desc">A code from your phone each time you sign in.</div>
-            </div>
-            <div class="toggle-pill">
-              <button class="${this.wants2FA ? "active" : ""}" @click=${() => { this.wants2FA = true; }}>Yes</button>
-              <button class="${!this.wants2FA ? "active" : ""}" @click=${() => { this.wants2FA = false; }}>Skip</button>
             </div>
           </div>
         `;

@@ -3,6 +3,7 @@ import { customElement, state } from "lit/decorators.js";
 import { getClerk } from "../auth/auth.service";
 import { loadSettings } from "../../shared/lib/settings";
 import { fetchBusinesses, createBusiness, setActiveBusiness } from "../../shared/lib/business";
+import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import type { Business } from "../../shared/lib/types";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-profile-menu";
@@ -40,6 +41,10 @@ export class FoundrBusiness extends LitElement {
   private async _init(): Promise<void> {
     const clerk = await getClerk();
     if (!clerk || !clerk.user) {
+      window.location.href = "/sign-in";
+      return;
+    }
+    if (!(await checkSessionFreshness(clerk))) {
       window.location.href = "/sign-in";
       return;
     }
