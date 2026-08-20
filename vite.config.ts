@@ -27,6 +27,7 @@ export default defineConfig({
         transactions: resolve(__dirname, "client/transactions.html"),
         margins: resolve(__dirname, "client/margins.html"),
         settings: resolve(__dirname, "client/settings.html"),
+        business: resolve(__dirname, "client/business.html"),
       },
     },
   },

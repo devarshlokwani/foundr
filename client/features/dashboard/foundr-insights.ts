@@ -1,5 +1,5 @@
-import { LitElement, html, css, svg, type TemplateResult } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { LitElement, html, css, svg, type TemplateResult, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { apiGet } from "../../shared/lib/api";
 import type { DashboardInsights, CategorySlice, CashPoint } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
@@ -16,17 +16,20 @@ import { formatMoney } from "../../shared/lib/format";
  */
 @customElement("foundr-insights")
 export class FoundrInsights extends LitElement {
+  @property({ type: String }) businessId = "";
   @state() private data: DashboardInsights | null = null;
   @state() private loading = true;
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    void this.refresh();
+  protected updated(changed: PropertyValues<this>): void {
+    if (changed.has("businessId") && this.businessId) {
+      void this.refresh();
+    }
   }
 
   async refresh(): Promise<void> {
+    if (!this.businessId) return;
     try {
-      this.data = await apiGet<DashboardInsights>("/insights");
+      this.data = await apiGet<DashboardInsights>(`/insights?businessId=${this.businessId}`);
     } catch {
       this.data = null;
     } finally {

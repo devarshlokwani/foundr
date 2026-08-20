@@ -20,6 +20,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const expenseSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    businessId: { type: String, required: true, index: true },
     type: { type: String, enum: ["expense", "income"], required: true },
     amount: { type: Number, required: true, min: 0 },
     category: { type: String, required: true, trim: true },

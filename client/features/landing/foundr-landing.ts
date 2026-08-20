@@ -9,6 +9,7 @@ import {
   revealOnScroll,
   teardownAnimations,
 } from "../../shared/lib/animations";
+import "../../shared/components/foundr-coming-soon-modal";
 
 gsap.registerPlugin(ScrollTrigger);
 /**
@@ -122,6 +123,7 @@ export class FoundrLanding extends LitElement {
   @state() private activeMetric = 0;
   @state() private openFaq = -1;
   @state() private activeFeature = 0;
+  @state() private comingSoonOpen = false;
   private _featAnimating = false;
 
   private _rotator?: ReturnType<typeof setInterval>;
@@ -298,6 +300,12 @@ export class FoundrLanding extends LitElement {
   }
   private _signIn(): void {
     this.dispatchEvent(new CustomEvent("sign-in", { bubbles: true, composed: true }));
+  }
+  // Paid plans aren't built yet — set honest expectations instead of
+  // sending someone to sign up for something that doesn't exist.
+  private _onPlanClick(plan: Plan): void {
+    if (plan.featured) this.comingSoonOpen = true;
+    else this._getStarted();
   }
   private _toggleFaq(i: number): void {
     this.openFaq = this.openFaq === i ? -1 : i;
@@ -787,7 +795,7 @@ export class FoundrLanding extends LitElement {
                       (f: string) => html`<li><span class="tick"><i class="ti ti-check" aria-hidden="true"></i></span>${f}</li>`
                     )}
                   </ul>
-                  <button class="${p.featured ? "btn-primary" : "btn-outline"}" @click=${this._getStarted}>${p.cta}</button>
+                  <button class="${p.featured ? "btn-primary" : "btn-outline"}" @click=${() => this._onPlanClick(p)}>${p.cta}</button>
                 </div>
               `
             )}
@@ -892,6 +900,11 @@ export class FoundrLanding extends LitElement {
       ${this._renderFaq()}
       ${this._renderFinalCta()}
       ${this._renderFooter()}
+
+      <foundr-coming-soon-modal
+        ?open=${this.comingSoonOpen}
+        @close=${() => { this.comingSoonOpen = false; }}
+      ></foundr-coming-soon-modal>
     `;
   }
 }

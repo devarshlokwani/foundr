@@ -5,12 +5,13 @@ import { apiGet } from "../../shared/lib/api";
 import type { DashboardMetrics } from "../../shared/lib/types";
 import "./foundr-add-entry";
 import "./foundr-insights";
+import "../onboarding/foundr-onboarding";
 import "../../shared/components/foundr-topbar";
-import "../../shared/components/foundr-page-loader";
 import "../../shared/components/foundr-mini-loader";
 import type { FoundrInsights } from "./foundr-insights";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
+import { resolveActiveBusiness } from "../../shared/lib/business";
 
 /**
  * <foundr-dashboard>
@@ -24,19 +25,14 @@ import { loadSettings } from "../../shared/lib/settings";
 @customElement("foundr-dashboard")
 export class FoundrDashboard extends LitElement {
   @state() private loading = true;
-  // Two-tier loading feedback: the small mini-loader shows the instant
-  // loading starts (no gap, no delay). If it's still going after a couple
-  // seconds, that's unexpectedly slow — escalate to the full entrance
-  // animation with a reassuring message.
-  @state() private escalated = false;
-  @state() private loaderVisible = false;
   @state() private error = "";
   @state() private metrics: DashboardMetrics | null = null;
   @state() private userName = "founder";
   @state() private modalOpen = false;
+  @state() private needsOnboarding = false;
+  @state() private businessId = "";
+  @state() private businessLabel = "";
     @query("foundr-insights") private insightsEl?: FoundrInsights;
-
-  private _escalateTimer?: ReturnType<typeof setTimeout>;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -54,21 +50,46 @@ export class FoundrDashboard extends LitElement {
 
     this.userName = clerk.user.firstName || "founder";
 
-    this._escalateTimer = setTimeout(() => {
-      if (this.loading) {
-        this.escalated = true;
-        this.loaderVisible = true;
-      }
-    }, 2000);
+    const settings = await loadSettings();
+    if (settings && !settings.onboarded) {
+      this.needsOnboarding = true;
+      this.loading = false;
+      return;
+    }
 
-    await loadSettings();
+    await this._loadBusinessAndMetrics(settings?.activeBusinessId ?? "");
+  }
+
+  private async _loadBusinessAndMetrics(settingsActiveId: string): Promise<void> {
+    try {
+      const { businesses, activeId } = await resolveActiveBusiness(settingsActiveId);
+      this.businessId = activeId;
+      this.businessLabel = businesses.find((b) => b._id === activeId)?.name ?? "";
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't load your businesses.";
+      this.loading = false;
+      return;
+    }
     await this._loadMetrics();
-    clearTimeout(this._escalateTimer);
+  }
+
+  private async _onOnboardingDone(e: CustomEvent<{ businessId: string; goToSecurity: boolean }>): Promise<void> {
+    if (e.detail.goToSecurity) {
+      window.location.href = "/settings?section=security";
+      return;
+    }
+    this.needsOnboarding = false;
+    this.loading = true;
+    await this._loadBusinessAndMetrics(e.detail.businessId);
   }
 
   private async _loadMetrics(): Promise<void> {
+    if (!this.businessId) {
+      this.loading = false;
+      return;
+    }
     try {
-      this.metrics = await apiGet<DashboardMetrics>("/metrics");
+      this.metrics = await apiGet<DashboardMetrics>(`/metrics?businessId=${this.businessId}`);
       this.error = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't load your metrics.";
@@ -192,7 +213,6 @@ export class FoundrDashboard extends LitElement {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: var(--bg, #ECEAE3); z-index: 5;
     }
-    .loading-hint { font-size: 13px; color: var(--ink-soft, #6B6B66); text-align: center; margin: -8px 0 0; }
 
     @media (max-width: 880px) {
       .kpi-grid, .secondary-grid { grid-template-columns: 1fr 1fr; }
@@ -204,7 +224,7 @@ export class FoundrDashboard extends LitElement {
 
   private _renderTopbar(): TemplateResult {
     return html`
-      <foundr-topbar active="dashboard">
+      <foundr-topbar active="dashboard" businessName=${this.businessLabel}>
         <button slot="actions" class="add-btn" @click=${this._openModal}>
           <i class="ti ti-plus" aria-hidden="true"></i>Add entry
         </button>
@@ -280,12 +300,16 @@ export class FoundrDashboard extends LitElement {
           </div>
         </div>
 
-        <foundr-insights></foundr-insights>
+        <foundr-insights businessId=${this.businessId}></foundr-insights>
       </div>
     `;
   }
 
   render(): TemplateResult {
+    if (this.needsOnboarding) {
+      return html`<foundr-onboarding @onboarding-done=${this._onOnboardingDone}></foundr-onboarding>`;
+    }
+
     let body: TemplateResult = html``;
     if (!this.loading) {
       if (this.error) body = html`<div class="error-box">${this.error}</div>`;
@@ -299,25 +323,14 @@ export class FoundrDashboard extends LitElement {
         ${this._renderHeader()}
         <div class="page-area">
           ${body}
-          ${this.loading && !this.escalated
+          ${this.loading
             ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
-            : ""}
-          ${this.loaderVisible
-            ? html`
-                <div class="loader-overlay">
-                  <foundr-page-loader
-                    ?done=${!this.loading}
-                    @loader-exit-done=${() => { this.loaderVisible = false; }}
-                  >
-                    <p slot="hint" class="loading-hint">This is taking longer than usual…</p>
-                  </foundr-page-loader>
-                </div>
-              `
             : ""}
         </div>
       </div>
       <foundr-add-entry
         .open=${this.modalOpen}
+        businessId=${this.businessId}
         @close=${this._closeModal}
         @entry-added=${this._onEntryAdded}
       ></foundr-add-entry>

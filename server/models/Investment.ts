@@ -12,6 +12,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const investmentSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    businessId: { type: String, required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
     source: { type: String, trim: true, default: "Personal savings" },
     note: { type: String, trim: true, default: "" },

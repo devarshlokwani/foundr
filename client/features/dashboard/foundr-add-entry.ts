@@ -38,6 +38,7 @@ function todayStr(): string {
 @customElement("foundr-add-entry")
 export class FoundrAddEntry extends LitElement {
   @property({ type: Boolean }) open = false;
+  @property({ type: String }) businessId = "";
 
   @state() private kind: EntryKind = "expense";
   @state() private amount = "";
@@ -75,15 +76,17 @@ export class FoundrAddEntry extends LitElement {
 
   updated(changed: Map<string, unknown>): void {
     // Re-fetch categories when the modal is (re)opened, in case the user
-    // added some elsewhere.
-    if (changed.has("open") && this.open && !this.catsLoaded) {
+    // added some elsewhere, or once businessId arrives (it's set as a
+    // property by the parent shortly after this element connects).
+    if ((changed.has("open") && this.open && !this.catsLoaded) || (changed.has("businessId") && this.businessId)) {
       void this._loadCategories();
     }
   }
 
   private async _loadCategories(): Promise<void> {
+    if (!this.businessId) return;
     try {
-      this.categories = await apiGet<Category[]>("/categories");
+      this.categories = await apiGet<Category[]>(`/categories?businessId=${this.businessId}`);
       this.catsLoaded = true;
     } catch {
       // Non-fatal: user can still type a custom one.
@@ -123,7 +126,7 @@ export class FoundrAddEntry extends LitElement {
     const name = this.newCategoryName.trim();
     if (!name) return;
     try {
-      const created = await apiPost<Category>("/categories", { kind: this.kind, name });
+      const created = await apiPost<Category>(`/categories?businessId=${this.businessId}`, { kind: this.kind, name });
       this.categories = [...this.categories, created];
       this.category = created.name;
       this.addingCategory = false;
@@ -150,21 +153,21 @@ export class FoundrAddEntry extends LitElement {
 
     try {
       if (this.kind === "investment") {
-        await apiPost("/investments", {
+        await apiPost(`/investments?businessId=${this.businessId}`, {
           amount: amountNum,
           source: this.category,
           note: this.note,
           date: this.date,
         });
       } else if (this.kind === "draw") {
-        await apiPost("/draws", {
+        await apiPost(`/draws?businessId=${this.businessId}`, {
           amount: amountNum,
           category: this.category,
           note: this.note,
           date: this.date,
         });
       } else if (this.kind === "debt") {
-        await apiPost("/debts", {
+        await apiPost(`/debts?businessId=${this.businessId}`, {
           type: this.debtDirection,
           amount: amountNum,
           source: this.category,
@@ -172,7 +175,7 @@ export class FoundrAddEntry extends LitElement {
           date: this.date,
         });
       } else {
-        await apiPost("/transactions", {
+        await apiPost(`/transactions?businessId=${this.businessId}`, {
           // revenue maps to the API's "income" type
           type: this.kind === "revenue" ? "income" : "expense",
           amount: amountNum,

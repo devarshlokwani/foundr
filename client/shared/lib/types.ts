@@ -97,13 +97,33 @@ export interface UnifiedEntry {
   date: string;
 }
 
-/** Per-user settings, from /api/settings. */
+/**
+ * Per-user settings, from /api/settings. Currency and the business's
+ * display name live on Business instead — see below — since those are
+ * per-startup facts, not account-wide ones.
+ */
 export interface UserSettings {
   userId: string;
-  currency: "USD" | "AUD" | "INR" | "EUR" | "GBP" | "CAD" | "SGD";
   theme: "light" | "dark" | "royal" | "ocean" | "sunset" | "slate";
-  businessName: string;
   gender: "male" | "female" | "non_binary" | "prefer_not_to_say" | "";
+  activeBusinessId: string;
+  onboarded: boolean;
+}
+
+/**
+ * One of a founder's businesses/startups, from /api/businesses. Every
+ * ledger entry (Expense, Investment, Draw, Debt, Category, Milestone)
+ * belongs to exactly one of these, so each gets its own isolated
+ * dashboard — a founder running several side hustles never sees one
+ * startup's numbers bleed into another's. `currency` is per-business too:
+ * one startup can track in INR while another tracks in AUD.
+ */
+export interface Business {
+  _id: string;
+  userId: string;
+  name: string;
+  currency: "USD" | "AUD" | "INR" | "EUR" | "GBP" | "CAD" | "SGD";
+  createdAt: string;
 }
 
 /**

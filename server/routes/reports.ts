@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { requireUser, getUserId } from "../middleware/auth.js";
+import { requireBusiness } from "../middleware/business.js";
 import { ExpenseModel } from "../models/Expense.js";
 import { InvestmentModel } from "../models/Investment.js";
 import { DrawModel } from "../models/Draw.js";
@@ -11,25 +12,27 @@ import { computeBalanceSheet } from "../lib/balanceSheet.js";
 /**
  * Business reports — margins (a cash-basis income breakdown: revenue by
  * category, expenses by category, net margin) and the balance sheet
- * (Assets = Liabilities + Equity, made possible by Draws and Debt).
- * Both exported as CSV by the frontend.
+ * (Assets = Liabilities + Equity, made possible by Draws and Debt), for
+ * one business. Both exported as CSV by the frontend.
  *
  * Routes:
- *   GET /api/reports/margins
- *   GET /api/reports/balance-sheet
+ *   GET /api/reports/margins?businessId=
+ *   GET /api/reports/balance-sheet?businessId=
  */
 const router = Router();
 
 router.use(requireUser);
+router.use(requireBusiness);
 
 router.get("/margins", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
+  const businessId = req.businessId;
 
   const [entries, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId }).select("type amount category date"),
-    InvestmentModel.find({ userId }).select("amount date"),
-    DrawModel.find({ userId }).select("amount"),
-    DebtModel.find({ userId }).select("type amount"),
+    ExpenseModel.find({ userId, businessId }).select("type amount category date"),
+    InvestmentModel.find({ userId, businessId }).select("amount date"),
+    DrawModel.find({ userId, businessId }).select("amount"),
+    DebtModel.find({ userId, businessId }).select("type amount"),
   ]);
 
   const totalInvested = investments.reduce((sum, i) => sum + i.amount, 0);
@@ -45,12 +48,13 @@ router.get("/margins", async (req: Request, res: Response) => {
 
 router.get("/balance-sheet", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
+  const businessId = req.businessId;
 
   const [expenses, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId }).select("type amount isCapital"),
-    InvestmentModel.find({ userId }).select("amount"),
-    DrawModel.find({ userId }).select("amount"),
-    DebtModel.find({ userId }).select("type amount"),
+    ExpenseModel.find({ userId, businessId }).select("type amount isCapital"),
+    InvestmentModel.find({ userId, businessId }).select("amount"),
+    DrawModel.find({ userId, businessId }).select("amount"),
+    DebtModel.find({ userId, businessId }).select("type amount"),
   ]);
 
   let totalIncome = 0;

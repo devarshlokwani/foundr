@@ -5,9 +5,9 @@ import { apiGet } from "../../shared/lib/api";
 import type { MarginsReport, CategorySlice, BalanceSheet } from "../../shared/lib/types";
 import { formatMoney, getCurrency } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
+import { resolveActiveBusiness } from "../../shared/lib/business";
 import { downloadCsv } from "../../shared/lib/csv";
 import "../../shared/components/foundr-topbar";
-import "../../shared/components/foundr-page-loader";
 import "../../shared/components/foundr-mini-loader";
 
 type Section = "margins" | "balance-sheet";
@@ -24,18 +24,12 @@ type Section = "margins" | "balance-sheet";
 @customElement("foundr-margins")
 export class FoundrMargins extends LitElement {
   @state() private loading = true;
-  // Two-tier loading feedback: the small mini-loader shows the instant
-  // loading starts (no gap, no delay). If it's still going after a couple
-  // seconds, that's unexpectedly slow — escalate to the full entrance
-  // animation with a reassuring message.
-  @state() private escalated = false;
-  @state() private loaderVisible = false;
   @state() private error = "";
   @state() private report: MarginsReport | null = null;
   @state() private balanceSheet: BalanceSheet | null = null;
   @state() private section: Section = "margins";
-
-  private _escalateTimer?: ReturnType<typeof setTimeout>;
+  @state() private businessName = "";
+  @state() private businessId = "";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -49,23 +43,32 @@ export class FoundrMargins extends LitElement {
       return;
     }
 
-    this._escalateTimer = setTimeout(() => {
-      if (this.loading) {
-        this.escalated = true;
-        this.loaderVisible = true;
-      }
-    }, 2000);
-
-    await loadSettings();
+    const settings = await loadSettings();
+    if (settings && !settings.onboarded) {
+      window.location.href = "/dashboard";
+      return;
+    }
+    try {
+      const { businesses, activeId } = await resolveActiveBusiness(settings?.activeBusinessId ?? "");
+      this.businessId = activeId;
+      this.businessName = businesses.find((b) => b._id === activeId)?.name || "Your Business";
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't load your businesses.";
+      this.loading = false;
+      return;
+    }
     await this._load();
-    clearTimeout(this._escalateTimer);
   }
 
   private async _load(): Promise<void> {
+    if (!this.businessId) {
+      this.loading = false;
+      return;
+    }
     try {
       const [report, balanceSheet] = await Promise.all([
-        apiGet<MarginsReport>("/reports/margins"),
-        apiGet<BalanceSheet>("/reports/balance-sheet"),
+        apiGet<MarginsReport>(`/reports/margins?businessId=${this.businessId}`),
+        apiGet<BalanceSheet>(`/reports/balance-sheet?businessId=${this.businessId}`),
       ]);
       this.report = report;
       this.balanceSheet = balanceSheet;
@@ -90,6 +93,16 @@ export class FoundrMargins extends LitElement {
   private _pct(n: number | null): string {
     if (n === null) return "—";
     return (n >= 0 ? "+" : "") + Math.round(n * 100) + "%";
+  }
+
+  /** A / B as "x.xx", or "—" when B is zero (nothing to divide by yet). */
+  private _ratio(a: number, b: number): string {
+    if (b === 0) return "—";
+    return (a / b).toFixed(2);
+  }
+
+  private _today(): string {
+    return new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
   }
 
   private _exportCsv(): void {
@@ -126,27 +139,40 @@ export class FoundrMargins extends LitElement {
   private _exportBalanceSheetCsv(): void {
     const b = this.balanceSheet;
     if (!b) return;
+    const liabEquityTotal = b.liabilities.total + b.equity.total;
 
     const rows: (string | number)[][] = [
-      ["Foundr — Balance sheet"],
-      [`Generated ${new Date().toLocaleDateString()}`, `Currency: ${getCurrency()}`],
+      [`${this.businessName} — Balance Sheet`],
+      [`As of ${this._today()}`, `Currency: ${getCurrency()}`],
       [],
-      ["Assets"],
-      ["Cash remaining", b.assets.cash],
-      ["Fixed assets", b.assets.fixedAssets],
-      ["Total assets", b.assets.total],
+      ["ASSETS"],
+      ["Current Assets"],
+      ["Cash", b.assets.cash],
+      ["Total Current Assets", b.assets.cash],
+      ["Fixed Assets"],
+      ["Equipment & Tools", b.assets.fixedAssets],
+      ["Total Fixed Assets", b.assets.fixedAssets],
+      ["TOTAL ASSETS", b.assets.total],
       [],
+      ["LIABILITIES AND OWNER'S EQUITY"],
       ["Liabilities"],
-      ["Debt", b.liabilities.debt],
-      ["Total liabilities", b.liabilities.total],
-      [],
-      ["Equity"],
-      ["Invested", b.equity.invested],
-      ["Draws", -b.equity.draws],
-      ["Retained earnings", b.equity.retainedEarnings],
-      ["Total equity", b.equity.total],
+      ["Loans & Debt", b.liabilities.debt],
+      ["Total Liabilities", b.liabilities.total],
+      ["Owner's Equity"],
+      ["Owner's Investment", b.equity.invested],
+      ["Owner's Draws", -b.equity.draws],
+      ["Retained Earnings", b.equity.retainedEarnings],
+      ["Total Owner's Equity", b.equity.total],
+      ["TOTAL LIABILITIES AND OWNER'S EQUITY", liabEquityTotal],
       [],
       ["Check: Assets = Liabilities + Equity", b.balanced ? "Balanced" : "Not balanced"],
+      [],
+      ["FINANCIAL RATIOS", "(debt treated as short-term)"],
+      ["Debt Ratio", this._ratio(b.liabilities.total, b.assets.total)],
+      ["Current Ratio", this._ratio(b.assets.cash, b.liabilities.debt)],
+      ["Working Capital", b.assets.cash - b.liabilities.debt],
+      ["Assets-to-Equity Ratio", this._ratio(b.assets.total, b.equity.total)],
+      ["Debt-to-Equity Ratio", this._ratio(b.liabilities.total, b.equity.total)],
     ];
 
     downloadCsv(`foundr-balance-sheet-${new Date().toISOString().slice(0, 10)}.csv`, rows);
@@ -175,12 +201,23 @@ export class FoundrMargins extends LitElement {
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .greeting-sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0; }
 
-    .section-tabs { display: flex; gap: 6px; background: var(--surface-alt, #F2EFE8); padding: 4px; border-radius: var(--radius-pill, 999px); width: fit-content; margin-bottom: 24px; }
-    .section-tab {
-      padding: 8px 18px; border-radius: var(--radius-pill, 999px); background: transparent; border: none;
-      font-size: 13.5px; font-weight: 500; color: var(--ink-soft, #6B6B66); transition: background 0.2s ease, color 0.2s ease;
+    .section-tabs {
+      position: relative; display: flex; background: var(--surface-alt, #F2EFE8);
+      padding: 4px; border-radius: var(--radius-pill, 999px); width: fit-content; margin-bottom: 24px;
     }
-    .section-tab.active { background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C); box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
+    .section-indicator {
+      position: absolute; top: 4px; left: 4px; bottom: 4px; width: var(--tab-w, 150px);
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-pill, 999px);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    .section-tab {
+      position: relative; z-index: 1; width: var(--tab-w, 150px); padding: 8px 0; text-align: center;
+      border-radius: var(--radius-pill, 999px); background: transparent; border: none;
+      font-size: 13.5px; font-weight: 500; color: var(--ink-soft, #6B6B66); transition: color 0.25s ease;
+    }
+    .section-tab.active { color: var(--ink, #1C1C1C); }
 
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
     .export-btn {
@@ -215,9 +252,6 @@ export class FoundrMargins extends LitElement {
     }
     .card h3 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
     .card .sub { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 20px; }
-
-    .bs-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 0.5px solid var(--line, #E2DFD7); }
-    .bs-row:last-of-type { border-bottom: none; }
 
     .bar-row { margin-bottom: 16px; }
     .bar-row:last-child { margin-bottom: 0; }
@@ -260,11 +294,66 @@ export class FoundrMargins extends LitElement {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: var(--bg, #ECEAE3); z-index: 5;
     }
-    .loading-hint { font-size: 13px; color: var(--ink-soft, #6B6B66); text-align: center; margin: -8px 0 0; }
+
+    /* Formal statement — deliberately more "official document" than the
+       rest of the app's soft rounded cards, since this is the one thing a
+       founder might actually print or hand to a bank/accountant. */
+    .statement {
+      background: var(--surface, #FAFAF7); border: 1.5px solid var(--ink, #1C1C1C);
+      border-radius: 16px; padding: 32px; margin-top: 16px;
+    }
+    .statement-head {
+      display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+      padding-bottom: 18px; margin-bottom: 24px; border-bottom: 2px solid var(--ink, #1C1C1C);
+    }
+    .statement-title { font-family: var(--font-display, serif); font-weight: 400; font-size: 22px; letter-spacing: 0.02em; margin: 0; }
+    .statement-sub { font-size: 14px; color: var(--ink-soft, #6B6B66); margin-top: 2px; }
+    .statement-date { font-size: 13px; color: var(--ink-soft, #6B6B66); white-space: nowrap; }
+
+    .statement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    .col-title {
+      font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 0 0 16px; color: var(--forest, #2D4A3E);
+    }
+    .section-label {
+      font-size: 11.5px; font-weight: 600; color: var(--ink-soft, #6B6B66);
+      text-transform: uppercase; letter-spacing: 0.03em; margin: 16px 0 6px;
+    }
+    .section-label:first-of-type { margin-top: 0; }
+    .stmt-line { display: flex; justify-content: space-between; font-size: 14px; padding: 5px 0 5px 10px; }
+    .stmt-subtotal {
+      display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600;
+      padding: 6px 0; margin-top: 2px; border-top: 0.5px solid var(--line, #E2DFD7); color: var(--ink-soft, #6B6B66);
+    }
+    .stmt-total {
+      display: flex; justify-content: space-between; font-size: 15px; font-weight: 700;
+      padding-top: 12px; margin-top: 16px; border-top: 2px solid var(--ink, #1C1C1C);
+    }
+
+    .balance-check {
+      margin-top: 26px; padding-top: 16px; border-top: 1px dashed var(--line, #E2DFD7);
+      text-align: center; font-size: 13px; font-weight: 500;
+    }
+    .balance-check.ok { color: var(--positive, #4F8A6B); }
+    .balance-check.bad { color: var(--danger, #A8302B); }
+
+    .ratios-card {
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
+      border: 0.5px solid var(--line, #E2DFD7); padding: 24px; margin-top: 16px;
+    }
+    .ratios-card h3 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+    .ratios-card .sub { font-size: 12px; color: var(--ink-soft, #6B6B66); margin: 0 0 16px; }
+    .ratio-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 24px; }
+    .ratio-row {
+      display: flex; justify-content: space-between; font-size: 13.5px;
+      padding: 9px 0; border-bottom: 0.5px solid var(--line, #E2DFD7);
+    }
 
     @media (max-width: 880px) {
       .kpi-grid { grid-template-columns: 1fr 1fr; }
       .grid { grid-template-columns: 1fr; }
+      .statement-grid { grid-template-columns: 1fr; gap: 8px; }
+      .ratio-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .kpi-grid { grid-template-columns: 1fr; }
@@ -292,7 +381,8 @@ export class FoundrMargins extends LitElement {
       </div>
       ${ready
         ? html`
-            <div class="section-tabs">
+            <div class="section-tabs" style="--tab-w: 150px">
+              <div class="section-indicator" style="transform: translateX(${this.section === "margins" ? 0 : 150}px)"></div>
               <button class="section-tab ${this.section === "margins" ? "active" : ""}"
                 @click=${() => { this.section = "margins"; }}>Margins</button>
               <button class="section-tab ${this.section === "balance-sheet" ? "active" : ""}"
@@ -378,6 +468,7 @@ export class FoundrMargins extends LitElement {
   }
 
   private _renderBalanceSheet(b: BalanceSheet): TemplateResult {
+    const liabEquityTotal = b.liabilities.total + b.equity.total;
     return html`
         <div class="kpi-grid three">
           <div class="kpi">
@@ -395,22 +486,61 @@ export class FoundrMargins extends LitElement {
           </div>
         </div>
 
-        <div class="grid">
-          <div class="card">
-            <h3>Assets</h3>
-            <p class="sub">What the business owns</p>
-            <div class="bs-row"><span>Cash remaining</span><span>${this._money(b.assets.cash)}</span></div>
-            <div class="bs-row"><span>Fixed assets</span><span>${this._money(b.assets.fixedAssets)}</span></div>
-            <div class="card-total"><span>Total assets</span><span>${this._money(b.assets.total)}</span></div>
+        <div class="statement">
+          <div class="statement-head">
+            <div>
+              <h2 class="statement-title">Balance Sheet</h2>
+              <div class="statement-sub">${this.businessName}</div>
+            </div>
+            <div class="statement-date">As of ${this._today()}</div>
           </div>
-          <div class="card">
-            <h3>Liabilities &amp; Equity</h3>
-            <p class="sub">What the business owes, and what's yours</p>
-            <div class="bs-row"><span>Debt</span><span>${this._money(b.liabilities.debt)}</span></div>
-            <div class="bs-row"><span>Invested</span><span>${this._money(b.equity.invested)}</span></div>
-            <div class="bs-row"><span>Draws</span><span>−${this._money(b.equity.draws)}</span></div>
-            <div class="bs-row"><span>Retained earnings</span><span>${this._money(b.equity.retainedEarnings)}</span></div>
-            <div class="card-total"><span>Total</span><span>${this._money(b.liabilities.total + b.equity.total)}</span></div>
+
+          <div class="statement-grid">
+            <div>
+              <div class="col-title">Assets</div>
+
+              <div class="section-label">Current Assets</div>
+              <div class="stmt-line"><span>Cash</span><span>${this._money(b.assets.cash)}</span></div>
+              <div class="stmt-subtotal"><span>Total Current Assets</span><span>${this._money(b.assets.cash)}</span></div>
+
+              <div class="section-label">Fixed Assets</div>
+              <div class="stmt-line"><span>Equipment &amp; Tools</span><span>${this._money(b.assets.fixedAssets)}</span></div>
+              <div class="stmt-subtotal"><span>Total Fixed Assets</span><span>${this._money(b.assets.fixedAssets)}</span></div>
+
+              <div class="stmt-total"><span>Total Assets</span><span>${this._money(b.assets.total)}</span></div>
+            </div>
+
+            <div>
+              <div class="col-title">Liabilities &amp; Owner's Equity</div>
+
+              <div class="section-label">Liabilities</div>
+              <div class="stmt-line"><span>Loans &amp; Debt</span><span>${this._money(b.liabilities.debt)}</span></div>
+              <div class="stmt-subtotal"><span>Total Liabilities</span><span>${this._money(b.liabilities.total)}</span></div>
+
+              <div class="section-label">Owner's Equity</div>
+              <div class="stmt-line"><span>Owner's Investment</span><span>${this._money(b.equity.invested)}</span></div>
+              <div class="stmt-line"><span>Owner's Draws</span><span>−${this._money(b.equity.draws)}</span></div>
+              <div class="stmt-line"><span>Retained Earnings</span><span>${this._money(b.equity.retainedEarnings)}</span></div>
+              <div class="stmt-subtotal"><span>Total Owner's Equity</span><span>${this._money(b.equity.total)}</span></div>
+
+              <div class="stmt-total"><span>Total Liabilities &amp; Equity</span><span>${this._money(liabEquityTotal)}</span></div>
+            </div>
+          </div>
+
+          <div class="balance-check ${b.balanced ? "ok" : "bad"}">
+            ${b.balanced ? "Assets = Liabilities + Equity — balanced ✓" : "Doesn't balance — check your entries"}
+          </div>
+        </div>
+
+        <div class="ratios-card">
+          <h3>Financial ratios</h3>
+          <p class="sub">Recorded debt is treated as short-term, typical for solo-founder borrowing.</p>
+          <div class="ratio-grid">
+            <div class="ratio-row"><span>Debt ratio</span><span>${this._ratio(b.liabilities.total, b.assets.total)}</span></div>
+            <div class="ratio-row"><span>Current ratio</span><span>${this._ratio(b.assets.cash, b.liabilities.debt)}</span></div>
+            <div class="ratio-row"><span>Working capital</span><span>${this._money(b.assets.cash - b.liabilities.debt)}</span></div>
+            <div class="ratio-row"><span>Assets-to-equity ratio</span><span>${this._ratio(b.assets.total, b.equity.total)}</span></div>
+            <div class="ratio-row"><span>Debt-to-equity ratio</span><span>${this._ratio(b.liabilities.total, b.equity.total)}</span></div>
           </div>
         </div>
     `;
@@ -426,25 +556,13 @@ export class FoundrMargins extends LitElement {
     }
 
     return html`
-      <foundr-topbar active="margins"></foundr-topbar>
+      <foundr-topbar active="margins" businessName=${this.businessName}></foundr-topbar>
       <div class="page">
         ${this._renderHeader()}
         <div class="page-area">
           ${body}
-          ${this.loading && !this.escalated
+          ${this.loading
             ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
-            : ""}
-          ${this.loaderVisible
-            ? html`
-                <div class="loader-overlay">
-                  <foundr-page-loader
-                    ?done=${!this.loading}
-                    @loader-exit-done=${() => { this.loaderVisible = false; }}
-                  >
-                    <p slot="hint" class="loading-hint">This is taking longer than usual…</p>
-                  </foundr-page-loader>
-                </div>
-              `
             : ""}
         </div>
       </div>

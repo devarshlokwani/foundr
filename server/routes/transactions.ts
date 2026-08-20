@@ -1,30 +1,35 @@
 import { Router, type Request, type Response } from "express";
 import { ExpenseModel } from "../models/Expense.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
+import { requireBusiness } from "../middleware/business.js";
 
 /**
- * Transactions API — the founder's income and expense entries.
- * Every route is scoped to the signed-in user via getUserId, so a
- * founder can only ever read or change their own records.
+ * Transactions API — the founder's income and expense entries for one
+ * business. Every route is scoped to the signed-in user AND the business
+ * named in `?businessId=`, so a founder can only ever read or change their
+ * own records, and one startup's numbers never bleed into another's.
  *
  * Routes:
- *   GET    /api/transactions      list (newest first)
- *   POST   /api/transactions      create
- *   PATCH  /api/transactions/:id  update
- *   DELETE /api/transactions/:id  delete
+ *   GET    /api/transactions?businessId=      list (newest first)
+ *   POST   /api/transactions?businessId=      create
+ *   PATCH  /api/transactions/:id?businessId=  update
+ *   DELETE /api/transactions/:id?businessId=  delete
  */
 const router = Router();
 
 router.use(requireUser);
+router.use(requireBusiness);
 
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const items = await ExpenseModel.find({ userId }).sort({ date: -1 });
+  const businessId = req.businessId;
+  const items = await ExpenseModel.find({ userId, businessId }).sort({ date: -1 });
   res.json(items);
 });
 
 router.post("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const businessId = req.businessId;
   const { type, amount, category, note, date, isCapital } = req.body;
 
   if (type !== "expense" && type !== "income") {
@@ -39,6 +44,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   const created = await ExpenseModel.create({
     userId,
+    businessId,
     type,
     amount,
     category: category.trim(),
@@ -51,8 +57,9 @@ router.post("/", async (req: Request, res: Response) => {
 
 router.patch("/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const businessId = req.businessId;
   const updated = await ExpenseModel.findOneAndUpdate(
-    { _id: req.params.id, userId },
+    { _id: req.params.id, userId, businessId },
     req.body,
     { new: true, runValidators: true }
   );
@@ -62,7 +69,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
 router.delete("/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const deleted = await ExpenseModel.findOneAndDelete({ _id: req.params.id, userId });
+  const businessId = req.businessId;
+  const deleted = await ExpenseModel.findOneAndDelete({ _id: req.params.id, userId, businessId });
   if (!deleted) return res.status(404).json({ error: "Transaction not found." });
   res.json({ ok: true });
 });

@@ -11,33 +11,23 @@ import {
   verifySecondaryEmail,
   removeEmail as removeClerkEmail,
 } from "../auth/auth.service";
-import { loadSettings, saveCurrency, saveTheme, saveProfileFields } from "../../shared/lib/settings";
-import { CURRENCIES, formatMoney, type CurrencyCode } from "../../shared/lib/format";
-import type { ThemeCode } from "../../shared/lib/theme";
-import type { UserSettings } from "../../shared/lib/types";
+import { loadSettings, saveTheme, saveProfileFields } from "../../shared/lib/settings";
+import { CURRENCIES, formatMoney, setCurrency, type CurrencyCode } from "../../shared/lib/format";
+import { THEME_OPTIONS, type ThemeCode } from "../../shared/lib/theme";
+import type { UserSettings, Business } from "../../shared/lib/types";
+import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency } from "../../shared/lib/business";
 import "../../shared/components/foundr-topbar";
-import "../../shared/components/foundr-page-loader";
 import "../../shared/components/foundr-mini-loader";
+import "../../shared/components/foundr-coming-soon-modal";
 
 type Gender = UserSettings["gender"];
-type Section = "general" | "profile" | "security";
+type Section = "general" | "profile" | "security" | "startups";
 
 interface EmailRow {
   id: string;
   email: string;
   primary: boolean;
 }
-
-/** Fixed preview colours for each theme option — shown regardless of the
- * currently active theme, so a swatch always represents its own theme. */
-const THEME_OPTIONS: { code: ThemeCode; label: string; desc: string; swatch: [string, string, string] }[] = [
-  { code: "light", label: "Original", desc: "Foundr's original look", swatch: ["#ECEAE3", "#2D4A3E", "#8AAF9A"] },
-  { code: "dark", label: "Dark", desc: "Easy on the eyes", swatch: ["#14161A", "#4C8267", "#7FB69B"] },
-  { code: "royal", label: "Royal", desc: "Purple and gold", swatch: ["#F4F0FA", "#4B2E83", "#C9A227"] },
-  { code: "ocean", label: "Ocean", desc: "Cool blue and teal", swatch: ["#EAF1F3", "#1F5A6E", "#6FA8B8"] },
-  { code: "sunset", label: "Sunset", desc: "Warm terracotta", swatch: ["#FBF0E6", "#B5502E", "#E3A85C"] },
-  { code: "slate", label: "Slate", desc: "Dark and monochrome", swatch: ["#15181D", "#5B7A99", "#8B9BAE"] },
-];
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "", label: "Prefer not to say" },
@@ -50,6 +40,7 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: "general", label: "General", icon: "ti-adjustments" },
   { key: "profile", label: "Profile", icon: "ti-user" },
   { key: "security", label: "Security", icon: "ti-shield-lock" },
+  { key: "startups", label: "Startups", icon: "ti-building-store" },
 ];
 
 const NAV_ITEM_HEIGHT = 44;
@@ -57,21 +48,18 @@ const NAV_ITEM_GAP = 6;
 
 /**
  * <foundr-settings>
- * The founder's settings page, split into three sections behind a left
- * nav with an animated sliding indicator: General (currency, appearance),
- * Profile (name, business name, gender — name lives in Clerk, the rest in
- * our DB), and Security (MFA, backup codes, secondary email — all Clerk).
+ * The founder's settings page, split into sections behind a left nav with
+ * an animated sliding indicator: General (currency, appearance — currency
+ * belongs to whichever startup is currently active, not the account),
+ * Profile (name, gender — name lives in Clerk, gender in our DB), Security
+ * (MFA, backup codes, secondary email — all Clerk), and Startups (switch,
+ * rename, or add businesses).
  */
 @customElement("foundr-settings")
 export class FoundrSettings extends LitElement {
   @state() private loading = true;
-  // Two-tier loading feedback: the small mini-loader shows the instant
-  // loading starts (no gap, no delay). If it's still going after a couple
-  // seconds, that's unexpectedly slow — escalate to the full entrance
-  // animation with a reassuring message.
-  @state() private escalated = false;
-  @state() private loaderVisible = false;
   @state() private section: Section = "general";
+  @state() private comingSoonOpen = false;
 
   // General
   @state() private currency: CurrencyCode = "AUD";
@@ -83,7 +71,6 @@ export class FoundrSettings extends LitElement {
   // Profile
   @state() private firstName = "";
   @state() private lastName = "";
-  @state() private businessName = "";
   @state() private gender: Gender = "";
   @state() private primaryEmail = "";
   @state() private profileSaving = false;
@@ -113,7 +100,15 @@ export class FoundrSettings extends LitElement {
   @state() private emailSaving = false;
   @state() private emailError = "";
 
-  private _escalateTimer?: ReturnType<typeof setTimeout>;
+  // Startups
+  @state() private businesses: Business[] = [];
+  @state() private activeBusinessId = "";
+  @state() private newStartupName = "";
+  @state() private startupSaving = false;
+  @state() private startupError = "";
+  @state() private tourOpen = false;
+  @state() private renamingId = "";
+  @state() private renameValue = "";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -128,22 +123,91 @@ export class FoundrSettings extends LitElement {
     }
     this._refreshFromClerk();
 
-    this._escalateTimer = setTimeout(() => {
-      if (this.loading) {
-        this.escalated = true;
-        this.loaderVisible = true;
-      }
-    }, 2000);
-
     const settings = await loadSettings();
+    if (settings && !settings.onboarded) {
+      window.location.href = "/dashboard";
+      return;
+    }
     if (settings) {
-      this.currency = settings.currency as CurrencyCode;
       this.theme = settings.theme as ThemeCode;
-      this.businessName = settings.businessName ?? "";
       this.gender = settings.gender ?? "";
     }
+
+    const requestedSection = new URLSearchParams(window.location.search).get("section");
+    if (requestedSection && SECTIONS.some((s) => s.key === requestedSection)) {
+      this.section = requestedSection as Section;
+    }
+
+    try {
+      const { businesses, activeId } = await resolveActiveBusiness(settings?.activeBusinessId ?? "");
+      this.businesses = businesses;
+      this.activeBusinessId = activeId;
+      this.currency = (businesses.find((b) => b._id === activeId)?.currency as CurrencyCode) ?? "AUD";
+    } catch {
+      this.businesses = [];
+    }
+
     this.loading = false;
-    clearTimeout(this._escalateTimer);
+  }
+
+  // ---- Startups ----
+
+  private async _switchBusiness(id: string): Promise<void> {
+    if (id === this.activeBusinessId) return;
+    this.activeBusinessId = id;
+    this.currency = (this.businesses.find((b) => b._id === id)?.currency as CurrencyCode) ?? "AUD";
+    await setActiveBusiness(id);
+  }
+
+  private _startRename(b: Business): void {
+    this.renamingId = b._id;
+    this.renameValue = b.name;
+    this.startupError = "";
+  }
+
+  private _cancelRename(): void {
+    this.renamingId = "";
+    this.renameValue = "";
+  }
+
+  private async _saveRename(id: string): Promise<void> {
+    const name = this.renameValue.trim();
+    if (!name) {
+      this.startupError = "Give your startup a name.";
+      return;
+    }
+    this.startupSaving = true;
+    this.startupError = "";
+    try {
+      const updated = await renameBusiness(id, name);
+      this.businesses = this.businesses.map((b) => (b._id === id ? updated : b));
+      this._cancelRename();
+    } catch (err) {
+      this.startupError = err instanceof Error ? err.message : "Couldn't rename that startup.";
+    } finally {
+      this.startupSaving = false;
+    }
+  }
+
+  private async _addStartup(e: Event): Promise<void> {
+    e.preventDefault();
+    const name = this.newStartupName.trim();
+    if (!name) {
+      this.startupError = "Give your startup a name.";
+      return;
+    }
+    this.startupSaving = true;
+    this.startupError = "";
+    try {
+      const business = await createBusiness(name);
+      this.businesses = [...this.businesses, business];
+      this.newStartupName = "";
+      await this._switchBusiness(business._id);
+    } catch (err) {
+      this.startupError = err instanceof Error ? err.message : "Couldn't add that startup.";
+    } finally {
+      this.startupSaving = false;
+    }
   }
 
   /** Re-read the identity/security state Clerk owns after any mutation. */
@@ -172,7 +236,11 @@ export class FoundrSettings extends LitElement {
     this.generalSaved = false;
     this.generalError = "";
     try {
-      await saveCurrency(next);
+      // Currency belongs to whichever startup is currently active, not the
+      // account as a whole — switching businesses picks up their own value.
+      const updated = await setBusinessCurrency(this.activeBusinessId, next);
+      this.businesses = this.businesses.map((b) => (b._id === updated._id ? updated : b));
+      setCurrency(next);
       this.generalSaved = true;
       setTimeout(() => { this.generalSaved = false; }, 2000);
     } catch (err) {
@@ -209,7 +277,7 @@ export class FoundrSettings extends LitElement {
     try {
       const nameResult = await updateProfileName(this.firstName.trim(), this.lastName.trim());
       if (!nameResult.ok) throw new Error(nameResult.error);
-      await saveProfileFields({ businessName: this.businessName.trim(), gender: this.gender });
+      await saveProfileFields({ gender: this.gender });
       this.profileSaved = true;
       setTimeout(() => { this.profileSaved = false; }, 2000);
     } catch (err) {
@@ -357,7 +425,6 @@ export class FoundrSettings extends LitElement {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: var(--bg, #ECEAE3); z-index: 5;
     }
-    .loading-hint { font-size: 13px; color: var(--ink-soft, #6B6B66); text-align: center; margin: -8px 0 0; }
     .ti {
       font-family: "tabler-icons" !important;
       font-style: normal; font-weight: normal; font-variant: normal;
@@ -372,6 +439,11 @@ export class FoundrSettings extends LitElement {
     .ti-mail:before { content: "\\eae5"; }
     .ti-plus:before { content: "\\eb0b"; }
     .ti-trash:before { content: "\\eb41"; }
+    .ti-building-store:before { content: "\\ea4e"; }
+    .ti-rocket:before { content: "\\ec45"; }
+    .ti-check:before { content: "\\ea5e"; }
+    .ti-pencil:before { content: "\\eb04"; }
+    .ti-x:before { content: "\\eb55"; }
     button, select, input { font-family: inherit; }
     button { cursor: pointer; border: none; }
 
@@ -525,6 +597,27 @@ export class FoundrSettings extends LitElement {
     .add-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .add-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+    .startup-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .startup-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 14px; background: var(--surface-alt, #F2EFE8); border-radius: 12px; font-size: 14px;
+    }
+    .startup-row.active { border: 1px solid var(--forest, #2D4A3E); }
+    .startup-row .badge {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); padding: 3px 8px; border-radius: 999px;
+    }
+    .startup-row .switch { padding: 6px 14px; font-size: 12.5px; }
+    .startup-row-actions { display: flex; align-items: center; gap: 8px; }
+    .startup-row.renaming { gap: 10px; }
+    .rename-input {
+      flex: 1; box-sizing: border-box; padding: 9px 12px; font-size: 14px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7);
+      border-radius: 10px; color: var(--ink, #1C1C1C);
+    }
+    .rename-input:focus { outline: none; border-color: var(--forest, #2D4A3E); }
+
     @media (max-width: 720px) {
       .layout { flex-direction: column; }
       .settings-nav { width: 100%; }
@@ -552,6 +645,16 @@ export class FoundrSettings extends LitElement {
 
   private _renderGeneral(): TemplateResult {
     return html`
+      <div class="card">
+        <div class="setting">
+          <div class="setting-info">
+            <div class="label">Plan</div>
+            <div class="desc">You're on the Free plan — every core feature, no cost.</div>
+          </div>
+          <button class="btn-save-form" @click=${() => { this.comingSoonOpen = true; }}>Upgrade</button>
+        </div>
+      </div>
+
       <div class="card">
         <div class="setting">
           <div class="setting-info">
@@ -616,11 +719,6 @@ export class FoundrSettings extends LitElement {
             <label for="lastName">Last name</label>
             <input id="lastName" type="text" .value=${this.lastName}
               @input=${(e: Event) => { this.lastName = (e.target as HTMLInputElement).value; }} />
-          </div>
-          <div class="field full">
-            <label for="businessName">Business / startup name</label>
-            <input id="businessName" type="text" placeholder="e.g. Foundr" .value=${this.businessName}
-              @input=${(e: Event) => { this.businessName = (e.target as HTMLInputElement).value; }} />
           </div>
           <div class="field">
             <label for="gender">Gender</label>
@@ -783,16 +881,87 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
+  private _renderStartups(): TemplateResult {
+    return html`
+      <div class="card">
+        <div class="setting-info">
+          <div class="label">Your startups</div>
+          <div class="desc">Every side hustle you track on Foundr gets its own isolated dashboard — numbers never mix between them. Switch which one you're working in here.</div>
+        </div>
+        <div class="startup-list">
+          ${this.businesses.map((b) =>
+            this.renamingId === b._id
+              ? html`
+                  <div class="startup-row renaming">
+                    <input
+                      class="rename-input"
+                      type="text"
+                      .value=${this.renameValue}
+                      @input=${(e: Event) => { this.renameValue = (e.target as HTMLInputElement).value; }}
+                      ?disabled=${this.startupSaving}
+                    />
+                    <div class="startup-row-actions">
+                      <button class="icon-btn" title="Save" @click=${() => this._saveRename(b._id)} ?disabled=${this.startupSaving}>
+                        <i class="ti ti-check" aria-hidden="true"></i>
+                      </button>
+                      <button class="icon-btn" title="Cancel" @click=${this._cancelRename} ?disabled=${this.startupSaving}>
+                        <i class="ti ti-x" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+                `
+              : html`
+                  <div class="startup-row ${b._id === this.activeBusinessId ? "active" : ""}">
+                    <span><i class="ti ti-building-store" aria-hidden="true"></i> ${b.name}</span>
+                    <div class="startup-row-actions">
+                      <button class="icon-btn" title="Rename" @click=${() => this._startRename(b)}>
+                        <i class="ti ti-pencil" aria-hidden="true"></i>
+                      </button>
+                      ${b._id === this.activeBusinessId
+                        ? html`<span class="badge"><i class="ti ti-check" aria-hidden="true"></i> Active</span>`
+                        : html`<button class="btn-outline-danger switch" @click=${() => this._switchBusiness(b._id)}>Switch</button>`}
+                    </div>
+                  </div>
+                `
+          )}
+        </div>
+
+        <form class="new-email-row" @submit=${this._addStartup}>
+          <div class="input-wrap">
+            <i class="ti ti-building-store" aria-hidden="true"></i>
+            <input type="text" placeholder="e.g. My Second Startup" .value=${this.newStartupName}
+              @input=${(e: Event) => { this.newStartupName = (e.target as HTMLInputElement).value; }} ?disabled=${this.startupSaving} />
+          </div>
+          <button type="submit" class="add-btn" ?disabled=${this.startupSaving}>
+            <i class="ti ti-plus" aria-hidden="true"></i>${this.startupSaving ? "Adding…" : "Add startup"}
+          </button>
+        </form>
+        <div class="status ${this.startupError ? "err" : ""}">${this.startupError}</div>
+      </div>
+
+      <div class="card">
+        <div class="setting">
+          <div class="setting-info">
+            <div class="label">Virtual tour</div>
+            <div class="desc">A guided walkthrough of what each part of Foundr does.</div>
+          </div>
+          <button class="btn-save-form" @click=${() => { this.tourOpen = true; }}>Launch tour</button>
+        </div>
+      </div>
+    `;
+  }
+
   render(): TemplateResult {
     let content: TemplateResult = html``;
     if (!this.loading) {
       if (this.section === "general") content = this._renderGeneral();
       else if (this.section === "profile") content = this._renderProfile();
-      else content = this._renderSecurity();
+      else if (this.section === "security") content = this._renderSecurity();
+      else content = this._renderStartups();
     }
 
     return html`
-      <foundr-topbar active="settings"></foundr-topbar>
+      <foundr-topbar active="settings" businessName=${this.businesses.find((b) => b._id === this.activeBusinessId)?.name ?? ""}></foundr-topbar>
 
       <div class="page">
         <h1>Settings</h1>
@@ -807,23 +976,24 @@ export class FoundrSettings extends LitElement {
                 </div>
               `
             : ""}
-          ${this.loading && !this.escalated
+          ${this.loading
             ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
-            : ""}
-          ${this.loaderVisible
-            ? html`
-                <div class="loader-overlay">
-                  <foundr-page-loader
-                    ?done=${!this.loading}
-                    @loader-exit-done=${() => { this.loaderVisible = false; }}
-                  >
-                    <p slot="hint" class="loading-hint">This is taking longer than usual…</p>
-                  </foundr-page-loader>
-                </div>
-              `
             : ""}
         </div>
       </div>
+
+      <foundr-coming-soon-modal
+        ?open=${this.comingSoonOpen}
+        @close=${() => { this.comingSoonOpen = false; }}
+      ></foundr-coming-soon-modal>
+
+      <foundr-coming-soon-modal
+        ?open=${this.tourOpen}
+        heading="Virtual tour"
+        body="The guided walkthrough is still in the works — for now, explore Foundr at your own pace. We'll let you know the moment it's ready."
+        cta="Got it"
+        @close=${() => { this.tourOpen = false; }}
+      ></foundr-coming-soon-modal>
     `;
   }
 }

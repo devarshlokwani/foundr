@@ -11,6 +11,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const drawSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    businessId: { type: String, required: true, index: true },
     amount: { type: Number, required: true, min: 0 },
     category: { type: String, required: true, trim: true },
     note: { type: String, trim: true, default: "" },

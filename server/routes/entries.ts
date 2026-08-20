@@ -4,22 +4,24 @@ import { InvestmentModel } from "../models/Investment.js";
 import { DrawModel } from "../models/Draw.js";
 import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
+import { requireBusiness } from "../middleware/business.js";
 
 /**
  * Entries API — a unified, read-only timeline of everything the founder
- * has recorded: expenses, revenue, investments, draws, and debt, merged
- * and sorted by date (newest first).
+ * has recorded for one business: expenses, revenue, investments, draws,
+ * and debt, merged and sorted by date (newest first).
  *
  * Each item is normalised to a common shape so the frontend can render one
  * list. `source` carries the collection it came from, plus the original
  * id, so edit/delete can route to the right endpoint.
  *
  * Routes:
- *   GET /api/entries
+ *   GET /api/entries?businessId=
  */
 const router = Router();
 
 router.use(requireUser);
+router.use(requireBusiness);
 
 interface UnifiedEntry {
   id: string;
@@ -33,12 +35,13 @@ interface UnifiedEntry {
 
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
+  const businessId = req.businessId;
 
   const [txns, invs, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId }).lean(),
-    InvestmentModel.find({ userId }).lean(),
-    DrawModel.find({ userId }).lean(),
-    DebtModel.find({ userId }).lean(),
+    ExpenseModel.find({ userId, businessId }).lean(),
+    InvestmentModel.find({ userId, businessId }).lean(),
+    DrawModel.find({ userId, businessId }).lean(),
+    DebtModel.find({ userId, businessId }).lean(),
   ]);
 
   const unified: UnifiedEntry[] = [];

@@ -15,14 +15,15 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const categorySchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    businessId: { type: String, required: true, index: true },
     kind: { type: String, enum: ["expense", "revenue", "investment", "draw", "debt"], required: true },
     name: { type: String, required: true, trim: true },
   },
   { timestamps: true }
 );
 
-// A user can't have the same category name twice within one kind.
-categorySchema.index({ userId: 1, kind: 1, name: 1 }, { unique: true });
+// A user can't have the same category name twice within one kind, per business.
+categorySchema.index({ userId: 1, businessId: 1, kind: 1, name: 1 }, { unique: true });
 
 export type Category = InferSchemaType<typeof categorySchema>;
 

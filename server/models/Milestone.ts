@@ -13,6 +13,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
 const milestoneSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
+    businessId: { type: String, required: true, index: true },
     title: { type: String, required: true, trim: true },
     targetAmount: { type: Number, min: 0, default: null },
     targetDate: { type: Date, default: null },

@@ -1,33 +1,37 @@
 import { Router, type Request, type Response } from "express";
 import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
+import { requireBusiness } from "../middleware/business.js";
 
 /**
- * Debt API — money borrowed for the business, and repayments against it.
- * Scoped to the signed-in user, same as investments. The outstanding
- * balance (borrowed minus repaid) is always derived from this ledger, not
- * stored, so it can't drift out of sync.
+ * Debt API — money borrowed for one business, and repayments against it.
+ * Scoped to the signed-in user and `?businessId=`, same as investments.
+ * The outstanding balance (borrowed minus repaid) is always derived from
+ * this ledger, not stored, so it can't drift out of sync.
  *
  * Routes:
- *   GET    /api/debts      list (newest first)
- *   POST   /api/debts      create { type: "borrow"|"repay", amount, source?, note?, date? }
- *   PATCH  /api/debts/:id  update
- *   DELETE /api/debts/:id  delete
+ *   GET    /api/debts?businessId=      list (newest first)
+ *   POST   /api/debts?businessId=      create { type: "borrow"|"repay", amount, source?, note?, date? }
+ *   PATCH  /api/debts/:id?businessId=  update
+ *   DELETE /api/debts/:id?businessId=  delete
  */
 const router = Router();
 
 router.use(requireUser);
+router.use(requireBusiness);
 
 const ALLOWED_TYPES = ["borrow", "repay"];
 
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const items = await DebtModel.find({ userId }).sort({ date: -1 });
+  const businessId = req.businessId;
+  const items = await DebtModel.find({ userId, businessId }).sort({ date: -1 });
   res.json(items);
 });
 
 router.post("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const businessId = req.businessId;
   const { type, amount, source, note, date } = req.body;
 
   if (!ALLOWED_TYPES.includes(type)) {
@@ -39,6 +43,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   const created = await DebtModel.create({
     userId,
+    businessId,
     type,
     amount,
     source: typeof source === "string" && source.trim() ? source.trim() : "Bank loan",
@@ -50,6 +55,7 @@ router.post("/", async (req: Request, res: Response) => {
 
 router.patch("/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
+  const businessId = req.businessId;
   const { type, amount, source, note, date } = req.body;
   const update: Record<string, unknown> = {};
 
@@ -70,7 +76,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
   if (date) update.date = new Date(date);
 
   const updated = await DebtModel.findOneAndUpdate(
-    { _id: req.params.id, userId },
+    { _id: req.params.id, userId, businessId },
     update,
     { new: true, runValidators: true }
   );
@@ -80,7 +86,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
 router.delete("/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const deleted = await DebtModel.findOneAndDelete({ _id: req.params.id, userId });
+  const businessId = req.businessId;
+  const deleted = await DebtModel.findOneAndDelete({ _id: req.params.id, userId, businessId });
   if (!deleted) return res.status(404).json({ error: "Debt entry not found." });
   res.json({ ok: true });
 });

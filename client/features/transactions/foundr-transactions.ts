@@ -5,8 +5,8 @@ import { apiGet, apiPatch, apiDelete } from "../../shared/lib/api";
 import type { UnifiedEntry } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
+import { resolveActiveBusiness } from "../../shared/lib/business";
 import "../../shared/components/foundr-topbar";
-import "../../shared/components/foundr-page-loader";
 import "../../shared/components/foundr-mini-loader";
 
 /**
@@ -22,19 +22,13 @@ import "../../shared/components/foundr-mini-loader";
 export class FoundrTransactions extends LitElement {
   @state() private entries: UnifiedEntry[] = [];
   @state() private loading = true;
-  // Two-tier loading feedback: the small mini-loader shows the instant
-  // loading starts (no gap, no delay). If it's still going after a couple
-  // seconds, that's unexpectedly slow — escalate to the full entrance
-  // animation with a reassuring message.
-  @state() private escalated = false;
-  @state() private loaderVisible = false;
   @state() private error = "";
   @state() private editingId: string | null = null;
   @state() private editAmount = "";
   @state() private editNote = "";
   @state() private busyId: string | null = null;
-
-  private _escalateTimer?: ReturnType<typeof setTimeout>;
+  @state() private businessId = "";
+  @state() private businessLabel = "";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -48,21 +42,30 @@ export class FoundrTransactions extends LitElement {
       return;
     }
 
-    this._escalateTimer = setTimeout(() => {
-      if (this.loading) {
-        this.escalated = true;
-        this.loaderVisible = true;
-      }
-    }, 2000);
-
-    await loadSettings();
+    const settings = await loadSettings();
+    if (settings && !settings.onboarded) {
+      window.location.href = "/dashboard";
+      return;
+    }
+    try {
+      const { businesses, activeId } = await resolveActiveBusiness(settings?.activeBusinessId ?? "");
+      this.businessId = activeId;
+      this.businessLabel = businesses.find((b) => b._id === activeId)?.name ?? "";
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't load your businesses.";
+      this.loading = false;
+      return;
+    }
     await this._load();
-    clearTimeout(this._escalateTimer);
   }
 
   private async _load(): Promise<void> {
+    if (!this.businessId) {
+      this.loading = false;
+      return;
+    }
     try {
-      this.entries = await apiGet<UnifiedEntry[]>("/entries");
+      this.entries = await apiGet<UnifiedEntry[]>(`/entries?businessId=${this.businessId}`);
       this.error = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't load your entries.";
@@ -73,10 +76,10 @@ export class FoundrTransactions extends LitElement {
 
   private _path(e: UnifiedEntry): string {
     switch (e.source) {
-      case "investment": return `/investments/${e.id}`;
-      case "draw": return `/draws/${e.id}`;
-      case "debt": return `/debts/${e.id}`;
-      default: return `/transactions/${e.id}`;
+      case "investment": return `/investments/${e.id}?businessId=${this.businessId}`;
+      case "draw": return `/draws/${e.id}?businessId=${this.businessId}`;
+      case "debt": return `/debts/${e.id}?businessId=${this.businessId}`;
+      default: return `/transactions/${e.id}?businessId=${this.businessId}`;
     }
   }
 
@@ -210,7 +213,6 @@ export class FoundrTransactions extends LitElement {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: var(--bg, #ECEAE3); z-index: 5;
     }
-    .loading-hint { font-size: 13px; color: var(--ink-soft, #6B6B66); text-align: center; margin: -8px 0 0; }
   `;
 
   private _renderRow(e: UnifiedEntry): TemplateResult {
@@ -257,7 +259,7 @@ export class FoundrTransactions extends LitElement {
 
   render(): TemplateResult {
     return html`
-      <foundr-topbar active="transactions"></foundr-topbar>
+      <foundr-topbar active="transactions" businessName=${this.businessLabel}></foundr-topbar>
 
       <div class="page">
         <h1>All entries</h1>
@@ -271,20 +273,8 @@ export class FoundrTransactions extends LitElement {
               ? html`<div class="empty">No entries yet. <a href="/dashboard">Add your first one</a> from the dashboard.</div>`
               : html`<div class="list">${this.entries.map((e) => this._renderRow(e))}</div>`
             : ""}
-          ${this.loading && !this.escalated
+          ${this.loading
             ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
-            : ""}
-          ${this.loaderVisible
-            ? html`
-                <div class="loader-overlay">
-                  <foundr-page-loader
-                    ?done=${!this.loading}
-                    @loader-exit-done=${() => { this.loaderVisible = false; }}
-                  >
-                    <p slot="hint" class="loading-hint">This is taking longer than usual…</p>
-                  </foundr-page-loader>
-                </div>
-              `
             : ""}
         </div>
       </div>

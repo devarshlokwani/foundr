@@ -1,23 +1,25 @@
 import { Router, type Request, type Response } from "express";
 import { CategoryModel } from "../models/Category.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
+import { requireBusiness } from "../middleware/business.js";
 
 /**
- * Categories API — each founder's personalised category lists.
- * Scoped to the signed-in user.
+ * Categories API — each founder's personalised category lists, per
+ * business. Scoped to the signed-in user and `?businessId=`.
  *
- * On the first GET, if the user has no categories yet, we seed a small
- * set of sensible defaults so they aren't staring at a blank list. After
- * that it's entirely theirs to add to or delete.
+ * On the first GET for a business, if it has no categories yet, we seed a
+ * small set of sensible defaults so it isn't a blank list. After that it's
+ * entirely theirs to add to or delete.
  *
  * Routes:
- *   GET    /api/categories          all of the user's categories
- *   POST   /api/categories          create one { kind, name }
- *   DELETE /api/categories/:id      delete one
+ *   GET    /api/categories?businessId=      all of the business's categories
+ *   POST   /api/categories?businessId=      create one { kind, name }
+ *   DELETE /api/categories/:id?businessId=  delete one
  */
 const router = Router();
 
 router.use(requireUser);
+router.use(requireBusiness);
 
 const DEFAULTS: Record<"expense" | "revenue" | "investment" | "draw" | "debt", string[]> = {
   expense: ["Marketing", "Tools / SaaS", "Design"],
@@ -29,16 +31,17 @@ const DEFAULTS: Record<"expense" | "revenue" | "investment" | "draw" | "debt", s
 
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
+  const businessId = req.businessId;
 
-  let items = await CategoryModel.find({ userId }).sort({ kind: 1, name: 1 });
+  let items = await CategoryModel.find({ userId, businessId }).sort({ kind: 1, name: 1 });
 
-  // Seed defaults the first time this user asks for categories.
+  // Seed defaults the first time this business asks for categories.
   if (items.length === 0) {
     const toCreate = (Object.keys(DEFAULTS) as Array<keyof typeof DEFAULTS>).flatMap((kind) =>
-      DEFAULTS[kind].map((name) => ({ userId, kind, name }))
+      DEFAULTS[kind].map((name) => ({ userId, businessId, kind, name }))
     );
     await CategoryModel.insertMany(toCreate);
-    items = await CategoryModel.find({ userId }).sort({ kind: 1, name: 1 });
+    items = await CategoryModel.find({ userId, businessId }).sort({ kind: 1, name: 1 });
   }
 
   res.json(items);
@@ -46,6 +49,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.post("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
+  const businessId = req.businessId;
   const { kind, name } = req.body;
 
   if (!["expense", "revenue", "investment", "draw", "debt"].includes(kind)) {
@@ -56,10 +60,10 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   try {
-    const created = await CategoryModel.create({ userId, kind, name: name.trim() });
+    const created = await CategoryModel.create({ userId, businessId, kind, name: name.trim() });
     res.status(201).json(created);
   } catch (err) {
-    // Duplicate (same user + kind + name) trips the unique index.
+    // Duplicate (same user + business + kind + name) trips the unique index.
     if (err && typeof err === "object" && "code" in err && (err as { code: number }).code === 11000) {
       return res.status(409).json({ error: "You already have that category." });
     }
@@ -69,7 +73,8 @@ router.post("/", async (req: Request, res: Response) => {
 
 router.delete("/:id", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
-  const deleted = await CategoryModel.findOneAndDelete({ _id: req.params.id, userId });
+  const businessId = req.businessId;
+  const deleted = await CategoryModel.findOneAndDelete({ _id: req.params.id, userId, businessId });
   if (!deleted) return res.status(404).json({ error: "Category not found." });
   res.json({ ok: true });
 });
