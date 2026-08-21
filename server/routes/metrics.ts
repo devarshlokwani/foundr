@@ -7,6 +7,7 @@ import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
 import { computeMetrics, type Entry } from "../lib/metrics.js";
 import { parseRangeQuery } from "../lib/dateRange.js";
+import { materializeDueRules } from "../lib/recurring.js";
 
 /**
  * Metrics API — the calculated numbers that make Foundr useful.
@@ -27,6 +28,8 @@ router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req);
   const businessId = req.businessId;
   const { period, dateFilter } = parseRangeQuery(req.query as Record<string, unknown>);
+
+  await materializeDueRules(userId!, businessId!);
 
   const [entries, investments, draws, debts] = await Promise.all([
     ExpenseModel.find({ userId, businessId, ...dateFilter }).select("type amount date").lean(),

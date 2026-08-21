@@ -5,6 +5,7 @@ import { DrawModel } from "../models/Draw.js";
 import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
+import { materializeDueRules } from "../lib/recurring.js";
 
 /**
  * Entries API — a unified, read-only timeline of everything the founder
@@ -35,7 +36,9 @@ interface UnifiedEntry {
 
 router.get("/", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
-  const businessId = req.businessId;
+  const businessId = req.businessId!;
+
+  await materializeDueRules(userId, businessId);
 
   const [txns, invs, draws, debts] = await Promise.all([
     ExpenseModel.find({ userId, businessId }).lean(),

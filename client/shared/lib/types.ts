@@ -154,3 +154,18 @@ export interface BalanceSheet {
   equity: { invested: number; draws: number; retainedEarnings: number; total: number };
   balanced: boolean;
 }
+
+/**
+ * An expense/revenue rule that materializes into a real entry on a
+ * schedule — see server/lib/recurring.ts. From /api/recurring.
+ */
+export interface RecurringRule {
+  _id: string;
+  kind: "expense" | "revenue";
+  amount: number;
+  category: string;
+  note: string;
+  frequency: "weekly" | "monthly" | "yearly";
+  nextRunDate: string;
+  active: boolean;
+}

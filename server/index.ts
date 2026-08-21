@@ -20,6 +20,7 @@ import reportsRouter from "./routes/reports.js";
 import drawsRouter from "./routes/draws.js";
 import debtsRouter from "./routes/debts.js";
 import businessesRouter from "./routes/businesses.js";
+import recurringRouter from "./routes/recurring.js";
 
 /**
  * Foundr API server.
@@ -59,6 +60,7 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/draws", drawsRouter);
 app.use("/api/debts", debtsRouter);
 app.use("/api/businesses", businessesRouter);
+app.use("/api/recurring", recurringRouter);
 
 // Catches anything a route threw or rejected with (now forwarded here by
 // express-async-errors) so one bad request returns a clean 500 instead of

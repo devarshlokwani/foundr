@@ -12,6 +12,8 @@ import { CURRENCIES, formatMoney, setCurrency, type CurrencyCode } from "../../s
 import { THEME_OPTIONS, type ThemeCode } from "../../shared/lib/theme";
 import type { UserSettings, Business } from "../../shared/lib/types";
 import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency, deleteBusiness, deleteBlockedReason } from "../../shared/lib/business";
+import { fetchRecurringRules, setRecurringActive, deleteRecurringRule } from "../../shared/lib/recurring";
+import type { RecurringRule } from "../../shared/lib/types";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import { startTour } from "../../shared/lib/tour";
 import "../../shared/components/foundr-topbar";
@@ -20,7 +22,7 @@ import "../../shared/components/foundr-coming-soon-modal";
 import "../../shared/components/foundr-tour-overlay";
 
 type Gender = UserSettings["gender"];
-type Section = "general" | "profile" | "security" | "startups";
+type Section = "general" | "profile" | "security" | "startups" | "recurring";
 
 interface EmailRow {
   id: string;
@@ -40,7 +42,14 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: "profile", label: "Profile", icon: "ti-user" },
   { key: "security", label: "Security", icon: "ti-shield-lock" },
   { key: "startups", label: "Startups", icon: "ti-building-store" },
+  { key: "recurring", label: "Recurring", icon: "ti-repeat" },
 ];
+
+const FREQUENCY_LABELS: Record<RecurringRule["frequency"], string> = {
+  weekly: "Weekly",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
 
 const NAV_ITEM_HEIGHT = 44;
 const NAV_ITEM_GAP = 6;
@@ -95,6 +104,11 @@ export class FoundrSettings extends LitElement {
   @state() private renamingId = "";
   @state() private renameValue = "";
 
+  // Recurring
+  @state() private recurringRules: RecurringRule[] = [];
+  @state() private recurringSaving = false;
+  @state() private recurringError = "";
+
   connectedCallback(): void {
     super.connectedCallback();
     void this._init();
@@ -132,11 +146,50 @@ export class FoundrSettings extends LitElement {
       this.businesses = businesses;
       this.activeBusinessId = activeId;
       this.currency = (businesses.find((b) => b._id === activeId)?.currency as CurrencyCode) ?? "AUD";
+      await this._loadRecurring();
     } catch {
       this.businesses = [];
     }
 
     this.loading = false;
+  }
+
+  // ---- Recurring ----
+
+  private async _loadRecurring(): Promise<void> {
+    if (!this.activeBusinessId) return;
+    try {
+      this.recurringRules = await fetchRecurringRules(this.activeBusinessId);
+    } catch {
+      // Non-fatal: the rest of Settings still works.
+    }
+  }
+
+  private async _toggleRecurring(rule: RecurringRule): Promise<void> {
+    this.recurringSaving = true;
+    this.recurringError = "";
+    try {
+      const updated = await setRecurringActive(this.activeBusinessId, rule._id, !rule.active);
+      this.recurringRules = this.recurringRules.map((r) => (r._id === rule._id ? updated : r));
+    } catch (err) {
+      this.recurringError = err instanceof Error ? err.message : "Couldn't update that rule.";
+    } finally {
+      this.recurringSaving = false;
+    }
+  }
+
+  private async _deleteRecurring(rule: RecurringRule): Promise<void> {
+    if (!confirm(`Stop "${rule.category}"? This can't be undone.`)) return;
+    this.recurringSaving = true;
+    this.recurringError = "";
+    try {
+      await deleteRecurringRule(this.activeBusinessId, rule._id);
+      this.recurringRules = this.recurringRules.filter((r) => r._id !== rule._id);
+    } catch (err) {
+      this.recurringError = err instanceof Error ? err.message : "Couldn't delete that rule.";
+    } finally {
+      this.recurringSaving = false;
+    }
   }
 
   // ---- Startups ----
@@ -146,6 +199,7 @@ export class FoundrSettings extends LitElement {
     this.activeBusinessId = id;
     this.currency = (this.businesses.find((b) => b._id === id)?.currency as CurrencyCode) ?? "AUD";
     await setActiveBusiness(id);
+    await this._loadRecurring();
   }
 
   private _startRename(b: Business): void {
@@ -379,6 +433,9 @@ export class FoundrSettings extends LitElement {
     .ti-check:before { content: "\\ea5e"; }
     .ti-pencil:before { content: "\\eb04"; }
     .ti-x:before { content: "\\eb55"; }
+    .ti-repeat:before { content: "\\eb72"; }
+    .ti-player-pause:before { content: "\\ed45"; }
+    .ti-player-play:before { content: "\\ed46"; }
     button, select, input { font-family: inherit; }
     button { cursor: pointer; border: none; }
 
@@ -521,12 +578,16 @@ export class FoundrSettings extends LitElement {
       border-radius: 14px; font-size: 14px; transition: border-color 0.15s ease;
     }
     .startup-row.active { border-color: var(--forest, #2D4A3E); }
+    .startup-row.paused { opacity: 0.6; }
     .startup-icon {
       width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
       background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E);
       display: grid; place-items: center; font-size: 16px;
     }
     .startup-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recurring-info { flex: 1; min-width: 0; }
+    .recurring-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recurring-meta { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin-top: 2px; }
     .startup-add-form { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
     .startup-add-input {
       flex: 1; min-width: 0; box-sizing: border-box; padding: 11px 14px; font-size: 14px; font-family: inherit;
@@ -542,6 +603,7 @@ export class FoundrSettings extends LitElement {
       background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); padding: 3px 8px; border-radius: 999px;
       flex-shrink: 0;
     }
+    .startup-row .badge.paused { background: var(--surface-alt, #F2EFE8); color: var(--ink-soft, #6B6B66); }
     .btn-switch {
       background: transparent; color: var(--forest, #2D4A3E); border: 1px solid var(--line, #E2DFD7);
       padding: 6px 14px; border-radius: var(--radius-pill, 999px); font-size: 12.5px; font-weight: 500;
@@ -846,13 +908,61 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
+  private _nextRun(rule: RecurringRule): string {
+    return new Date(rule.nextRunDate).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  private _renderRecurring(): TemplateResult {
+    return html`
+      <div class="card">
+        <div class="setting-info">
+          <div class="label">Recurring entries</div>
+          <div class="desc">Expenses or revenue that repeat on a schedule — start one from "Add entry" and check "Make this recurring." Each appears automatically as a real entry when it comes due.</div>
+        </div>
+
+        ${this.recurringRules.length === 0
+          ? html`<p class="hint">Nothing recurring yet.</p>`
+          : html`
+              <div class="startup-list">
+                ${this.recurringRules.map(
+                  (r) => html`
+                    <div class="startup-row ${r.active ? "" : "paused"}">
+                      <span class="startup-icon"><i class="ti ti-repeat" aria-hidden="true"></i></span>
+                      <div class="recurring-info">
+                        <div class="recurring-name">${r.category}</div>
+                        <div class="recurring-meta">
+                          ${r.kind === "revenue" ? "+" : "−"}${formatMoney(r.amount)} · ${FREQUENCY_LABELS[r.frequency]} · next ${this._nextRun(r)}
+                        </div>
+                      </div>
+                      <div class="startup-row-actions">
+                        ${!r.active ? html`<span class="badge paused">Paused</span>` : ""}
+                        <button class="icon-btn" title=${r.active ? "Pause" : "Resume"}
+                          @click=${() => this._toggleRecurring(r)} ?disabled=${this.recurringSaving}>
+                          <i class="ti ${r.active ? "ti-player-pause" : "ti-player-play"}" aria-hidden="true"></i>
+                        </button>
+                        <button class="icon-btn danger" title="Delete"
+                          @click=${() => this._deleteRecurring(r)} ?disabled=${this.recurringSaving}>
+                          <i class="ti ti-trash" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    </div>
+                  `
+                )}
+              </div>
+            `}
+        <div class="status ${this.recurringError ? "err" : ""}">${this.recurringError}</div>
+      </div>
+    `;
+  }
+
   render(): TemplateResult {
     let content: TemplateResult = html``;
     if (!this.loading) {
       if (this.section === "general") content = this._renderGeneral();
       else if (this.section === "profile") content = this._renderProfile();
       else if (this.section === "security") content = this._renderSecurity();
-      else content = this._renderStartups();
+      else if (this.section === "startups") content = this._renderStartups();
+      else content = this._renderRecurring();
     }
 
     return html`

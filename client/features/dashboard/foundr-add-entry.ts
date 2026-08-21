@@ -1,10 +1,19 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
 import { apiGet, apiPost } from "../../shared/lib/api";
 import { currencySymbol } from "../../shared/lib/format";
+import { createRecurringRule } from "../../shared/lib/recurring";
 
 type EntryKind = "expense" | "revenue" | "investment" | "draw" | "debt";
 type DebtDirection = "borrow" | "repay";
+type Frequency = "weekly" | "monthly" | "yearly";
+
+const FREQUENCY_OPTIONS: { value: Frequency; label: string }[] = [
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
 
 interface Category {
   _id: string;
@@ -54,6 +63,11 @@ export class FoundrAddEntry extends LitElement {
   @state() private isCapital = false;
   // Debt-only: which direction this entry moves the outstanding balance.
   @state() private debtDirection: DebtDirection = "borrow";
+  // Expense/revenue-only: adds a recurring rule instead of (well, in
+  // addition to, via lazy materialization — see lib/recurring.ts) a
+  // one-off entry, so the founder doesn't have to re-type it every period.
+  @state() private recurring = false;
+  @state() private frequency: Frequency = "monthly";
 
   @state() private categories: Category[] = [];
   @state() private catsLoaded = false;
@@ -111,6 +125,8 @@ export class FoundrAddEntry extends LitElement {
     this.kind = "expense";
     this.isCapital = false;
     this.debtDirection = "borrow";
+    this.recurring = false;
+    this.frequency = "monthly";
     this.addingCategory = false;
     this.newCategoryName = "";
   }
@@ -120,6 +136,7 @@ export class FoundrAddEntry extends LitElement {
     this.category = "";
     this.error = "";
     this.addingCategory = false;
+    this.recurring = false;
   }
 
   private async _saveNewCategory(): Promise<void> {
@@ -173,6 +190,18 @@ export class FoundrAddEntry extends LitElement {
           source: this.category,
           note: this.note,
           date: this.date,
+        });
+      } else if (this.recurring) {
+        // Creates the rule only — the first occurrence (and any others
+        // that come due) appears next time entries/metrics are fetched,
+        // via the same lazy materialization ensureDefaultBusiness uses.
+        await createRecurringRule(this.businessId, {
+          kind: this.kind as "expense" | "revenue",
+          amount: amountNum,
+          category: this.category,
+          note: this.note,
+          frequency: this.frequency,
+          startDate: this.date,
         });
       } else {
         await apiPost(`/transactions?businessId=${this.businessId}`, {
@@ -252,6 +281,12 @@ export class FoundrAddEntry extends LitElement {
     }
     .field input.with-rupee { padding-left: 30px; }
     .field input:focus { outline: none; border-color: var(--forest, #2D4A3E); box-shadow: 0 0 0 3px rgba(45,74,62,0.1); }
+    .field select {
+      width: 100%; padding: 12px 14px; font-size: 15px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 14px); color: var(--ink, #1C1C1C); cursor: pointer;
+    }
+    .field select:focus { outline: none; border-color: var(--forest, #2D4A3E); box-shadow: 0 0 0 3px rgba(45,74,62,0.1); }
 
     .cat-grid { display: flex; flex-wrap: wrap; gap: 8px; }
     .cat-chip {
@@ -376,9 +411,30 @@ export class FoundrAddEntry extends LitElement {
                 `
               : ""}
 
+            ${this.kind === "expense" || this.kind === "revenue"
+              ? html`
+                  <label class="capital-check">
+                    <input type="checkbox" .checked=${this.recurring}
+                      @change=${(e: Event) => { this.recurring = (e.target as HTMLInputElement).checked; }} />
+                    <span>Make this recurring — add it again automatically on a schedule</span>
+                  </label>
+                  ${this.recurring
+                    ? html`
+                        <div class="field">
+                          <label for="frequency">Repeats</label>
+                          <select id="frequency" .value=${this.frequency}
+                            @change=${(e: Event) => { this.frequency = (e.target as HTMLSelectElement).value as Frequency; }}>
+                            ${FREQUENCY_OPTIONS.map((f) => html`<option value=${f.value} ?selected=${f.value === this.frequency}>${f.label}</option>`)}
+                          </select>
+                        </div>
+                      `
+                    : ""}
+                `
+              : ""}
+
             <div class="field">
-              <label for="date">Date</label>
-              <input id="date" type="date" .value=${this.date} max=${todayStr()}
+              <label for="date">${this.recurring ? "Starts on" : "Date"}</label>
+              <input id="date" type="date" .value=${this.date} max=${ifDefined(this.recurring ? undefined : todayStr())}
                 @input=${(e: Event) => { this.date = (e.target as HTMLInputElement).value; }}
                 ?disabled=${this.loading} />
             </div>
