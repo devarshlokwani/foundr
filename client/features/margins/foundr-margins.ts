@@ -9,6 +9,7 @@ import { resolveActiveBusiness } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import { downloadCsv } from "../../shared/lib/csv";
 import { RANGE_PRESETS, getStoredRangePreset, setStoredRangePreset, rangeQueryParams, type RangePreset } from "../../shared/lib/dateRange";
+import { GRANULARITY_OPTIONS, getStoredGranularity, setStoredGranularity, type Granularity } from "../../shared/lib/granularity";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-tour-overlay";
@@ -41,6 +42,15 @@ export class FoundrMargins extends LitElement {
   @state() private businessId = "";
   @state() private hoveredMonth: number | null = null;
   @state() private range: RangePreset = getStoredRangePreset();
+  // Trend-chart-only granularity — month-over-month always stays monthly
+  // (its whole point is a monthly comparison), so it keeps its own series
+  // fetched at "month" regardless of what the trend chart is set to.
+  @state() private trendGranularity: Granularity = getStoredGranularity();
+  @state() private momSeries: MonthlyPoint[] = [];
+
+  // Above this many points (daily granularity over a few months), skip the
+  // per-point markers so the line doesn't turn into a wall of dots.
+  private static readonly MAX_DOTS = 60;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -84,17 +94,33 @@ export class FoundrMargins extends LitElement {
       const [report, balanceSheet, insights] = await Promise.all([
         apiGet<MarginsReport>(`/reports/margins?businessId=${this.businessId}${rangeQueryParams(this.range)}`),
         apiGet<BalanceSheet>(`/reports/balance-sheet?businessId=${this.businessId}`),
-        apiGet<DashboardInsights>(`/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}`),
+        apiGet<DashboardInsights>(`/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}&granularity=${this.trendGranularity}`),
       ]);
       this.report = report;
       this.balanceSheet = balanceSheet;
       this.insights = insights;
+      this.momSeries = this.trendGranularity === "month" ? insights.monthlySeries : await this._fetchMonthlySeries("month");
       this.error = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't load your reports.";
     } finally {
       this.loading = false;
     }
+  }
+
+  private async _fetchMonthlySeries(granularity: Granularity): Promise<MonthlyPoint[]> {
+    const res = await apiGet<DashboardInsights>(
+      `/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}&granularity=${granularity}`
+    );
+    return res.monthlySeries;
+  }
+
+  private async _onTrendGranularityChange(e: Event): Promise<void> {
+    const next = (e.target as HTMLSelectElement).value as Granularity;
+    this.trendGranularity = next;
+    setStoredGranularity(next);
+    this.loading = true;
+    await this._load();
   }
 
   private async _onRangeChange(e: Event): Promise<void> {
@@ -253,6 +279,15 @@ export class FoundrMargins extends LitElement {
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px;
+    }
+    .card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .granularity-select {
+      font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink, #1C1C1C);
+      background: var(--surface-alt, #F2EFE8); border: 0.5px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-pill, 999px); padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 26px;
     }
     .export-btn {
       background: var(--forest, #2D4A3E); color: #fff; font-size: 14px; font-weight: 500;
@@ -563,10 +598,15 @@ export class FoundrMargins extends LitElement {
     `;
   }
 
-  private _monthLabel(key: string): string {
-    const [y, m] = key.split("-").map(Number);
+  private _periodLabel(key: string): string {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return `${months[m - 1]} ${String(y).slice(2)}`;
+    const parts = key.split("-").map(Number);
+    if (parts.length === 2) {
+      const [y, m] = parts;
+      return `${months[m - 1]} ${String(y).slice(2)}`;
+    }
+    const [, m, d] = parts;
+    return `${d} ${months[m - 1]}`;
   }
 
   private _renderTrends(): TemplateResult {
@@ -574,15 +614,22 @@ export class FoundrMargins extends LitElement {
     const expenseSlices = this.report?.expenses ?? [];
     return html`
       <div class="card">
-        <h3>Revenue vs. expenses</h3>
-        <p class="sub">Month by month — where the two lines cross is where you stopped losing money</p>
+        <div class="card-head-row">
+          <div>
+            <h3>Revenue vs. expenses</h3>
+            <p class="sub">Where the two lines cross is where you stopped losing money</p>
+          </div>
+          <select class="granularity-select" .value=${this.trendGranularity} @change=${this._onTrendGranularityChange}>
+            ${GRANULARITY_OPTIONS.map((o) => html`<option value=${o.code} ?selected=${o.code === this.trendGranularity}>${o.label}</option>`)}
+          </select>
+        </div>
         ${this._renderTrendChart(series)}
       </div>
       <div class="grid trends-grid">
         <div class="card">
           <h3>Net by month</h3>
           <p class="sub">Income minus expenses, per month</p>
-          ${this._renderMonthOverMonth(series)}
+          ${this._renderMonthOverMonth(this.momSeries)}
         </div>
         <div class="card">
           <h3>Where it went</h3>
@@ -626,12 +673,16 @@ export class FoundrMargins extends LitElement {
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue vs expenses by month">
         <polyline points=${incomeLine} fill="none" stroke="var(--forest, #2D4A3E)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
         <polyline points=${expenseLine} fill="none" stroke="var(--danger, #D9534F)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-        ${series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.income)} r="3" fill="var(--forest, #2D4A3E)" />`)}
-        ${series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.expenses)} r="3" fill="var(--danger, #D9534F)" />`)}
+        ${series.length <= FoundrMargins.MAX_DOTS
+          ? series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.income)} r="3" fill="var(--forest, #2D4A3E)" />`)
+          : ""}
+        ${series.length <= FoundrMargins.MAX_DOTS
+          ? series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.expenses)} r="3" fill="var(--danger, #D9534F)" />`)
+          : ""}
         ${series.map((p, i) => {
           const show = series.length <= 6 || i === 0 || i === series.length - 1 || i === Math.floor(series.length / 2);
           return show
-            ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>`
+            ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._periodLabel(p.key)}</text>`
             : "";
         })}
         ${hover
@@ -640,7 +691,7 @@ export class FoundrMargins extends LitElement {
               <circle class="hover-point rev" cx=${hoverX} cy=${y(hover.income)} r="5" />
               <circle class="hover-point exp" cx=${hoverX} cy=${y(hover.expenses)} r="5" />
               <rect class="tooltip-box" x=${boxX} y=${padT} width=${boxW} height=${boxH} rx="6" />
-              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${padT + 12} text-anchor="middle">${this._monthLabel(hover.month)}</text>
+              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${padT + 12} text-anchor="middle">${this._periodLabel(hover.key)}</text>
               <text class="tooltip-text value rev" x=${boxX + boxW / 2} y=${padT + 26} text-anchor="middle">${this._money(hover.income)}</text>
               <text class="tooltip-text value exp" x=${boxX + boxW / 2} y=${padT + 39} text-anchor="middle">${this._money(hover.expenses)}</text>
             `
@@ -695,7 +746,7 @@ export class FoundrMargins extends LitElement {
             <rect x=${x(i) - barW / 2} y=${barY} width=${barW} height=${Math.max(h, 1)} rx="4"
               fill=${positive ? "var(--forest, #2D4A3E)" : "var(--danger, #D9534F)"} />
             <text x=${x(i)} y=${positive ? barY - 5 : barY + h + 13} text-anchor="middle" class="mom-value">${this._money(net)}</text>
-            <text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>
+            <text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._periodLabel(p.key)}</text>
           `;
         })}
       </svg>

@@ -4,6 +4,7 @@ import { apiGet } from "../../shared/lib/api";
 import type { DashboardInsights, CategorySlice, CashPoint } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
 import { rangeQueryParams, type RangePreset } from "../../shared/lib/dateRange";
+import { GRANULARITY_OPTIONS, getStoredGranularity, setStoredGranularity, type Granularity } from "../../shared/lib/granularity";
 
 /**
  * <foundr-insights>
@@ -22,10 +23,14 @@ export class FoundrInsights extends LitElement {
   @state() private data: DashboardInsights | null = null;
   @state() private loading = true;
   @state() private hoveredIndex: number | null = null;
+  @state() private granularity: Granularity = getStoredGranularity();
 
   private static readonly CHART_W = 320;
   private static readonly PAD_L = 28;
   private static readonly PAD_R = 28;
+  // Above this many points (daily granularity over a few months), skip the
+  // per-point markers so the line doesn't turn into a wall of dots.
+  private static readonly MAX_DOTS = 60;
 
   protected updated(changed: PropertyValues<this>): void {
     if ((changed.has("businessId") || changed.has("range")) && this.businessId) {
@@ -37,7 +42,7 @@ export class FoundrInsights extends LitElement {
     if (!this.businessId) return;
     try {
       this.data = await apiGet<DashboardInsights>(
-        `/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}`
+        `/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}&granularity=${this.granularity}`
       );
     } catch {
       this.data = null;
@@ -46,14 +51,26 @@ export class FoundrInsights extends LitElement {
     }
   }
 
+  private _onGranularityChange(e: Event): void {
+    const next = (e.target as HTMLSelectElement).value as Granularity;
+    this.granularity = next;
+    setStoredGranularity(next);
+    void this.refresh();
+  }
+
   private _money(n: number): string {
     return formatMoney(n);
   }
 
-  private _monthLabel(key: string): string {
-    const [y, m] = key.split("-").map(Number);
+  private _periodLabel(key: string): string {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return `${months[m - 1]} ${String(y).slice(2)}`;
+    const parts = key.split("-").map(Number);
+    if (parts.length === 2) {
+      const [y, m] = parts;
+      return `${months[m - 1]} ${String(y).slice(2)}`;
+    }
+    const [, m, d] = parts;
+    return `${d} ${months[m - 1]}`;
   }
 
   static styles = css`
@@ -68,6 +85,15 @@ export class FoundrInsights extends LitElement {
       margin: 0 0 4px; color: var(--ink, #1C1C1C);
     }
     .card .sub { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 18px; }
+    .card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .granularity-select {
+      font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink, #1C1C1C);
+      background: var(--surface-alt, #F2EFE8); border: 0.5px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-pill, 999px); padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; padding-right: 26px;
+    }
     .empty { font-size: 13px; color: var(--ink-soft, #6B6B66); padding: 30px 0; text-align: center; line-height: 1.7; }
     .empty strong { color: var(--ink, #1C1C1C); font-size: 16px; }
 
@@ -180,13 +206,13 @@ export class FoundrInsights extends LitElement {
         <polygon points=${areaPts} fill="var(--sage-soft, #DDE7E0)" opacity="0.6" />
         <polyline points=${linePts} fill="none" stroke="var(--forest, #2D4A3E)"
           stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-        ${series.map(
-          (p, i) => svg`<circle cx=${x(i)} cy=${y(p.cash)} r="3" fill="var(--forest, #2D4A3E)" />`
-        )}
+        ${series.length <= FoundrInsights.MAX_DOTS
+          ? series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.cash)} r="3" fill="var(--forest, #2D4A3E)" />`)
+          : ""}
         ${series.map((p, i) => {
           const show = series.length <= 6 || i === 0 || i === series.length - 1 || i === Math.floor(series.length / 2);
           return show
-            ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>`
+            ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._periodLabel(p.key)}</text>`
             : "";
         })}
         ${hover
@@ -194,7 +220,7 @@ export class FoundrInsights extends LitElement {
               <line class="guide-line" x1=${hoverX} y1=${padT} x2=${hoverX} y2=${H - padB} />
               <circle class="hover-point" cx=${hoverX} cy=${hoverY} r="5" />
               <rect class="tooltip-box" x=${boxX} y=${boxY} width=${boxW} height=${boxH} rx="6" />
-              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${boxY + 12} text-anchor="middle">${this._monthLabel(hover.month)}</text>
+              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${boxY + 12} text-anchor="middle">${this._periodLabel(hover.key)}</text>
               <text class="tooltip-text value" x=${boxX + boxW / 2} y=${boxY + 24} text-anchor="middle">${this._money(hover.cash)}</text>
             `
           : ""}
@@ -233,8 +259,15 @@ export class FoundrInsights extends LitElement {
           ${this._renderCategoryBars(categoryBreakdown)}
         </div>
         <div class="card">
-          <h3>Cash over time</h3>
-          <p class="sub">Running balance, month by month</p>
+          <div class="card-head-row">
+            <div>
+              <h3>Cash over time</h3>
+              <p class="sub">Running balance</p>
+            </div>
+            <select class="granularity-select" .value=${this.granularity} @change=${this._onGranularityChange}>
+              ${GRANULARITY_OPTIONS.map((o) => html`<option value=${o.code} ?selected=${o.code === this.granularity}>${o.label}</option>`)}
+            </select>
+          </div>
           ${this._renderCashChart(cashSeries)}
         </div>
       </div>

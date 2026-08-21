@@ -74,15 +74,15 @@ export interface CategorySlice {
   total: number;
 }
 
-/** One month's running cash balance, for the cash chart. */
+/** One bucket's running cash balance, for the cash chart. `key` is "YYYY-MM" at monthly granularity, "YYYY-MM-DD" (bucket start) at day/biweekly. */
 export interface CashPoint {
-  month: string;
+  key: string;
   cash: number;
 }
 
-/** One month's income and expense totals, not cumulative — for the trend and month-over-month charts. */
+/** One bucket's income and expense totals, not cumulative — for the trend and month-over-month charts. Same `key` shape as CashPoint. */
 export interface MonthlyPoint {
-  month: string;
+  key: string;
   income: number;
   expenses: number;
 }
@@ -103,6 +103,14 @@ export interface UnifiedEntry {
   label: string;
   note: string;
   date: string;
+}
+
+/** One page of GET /api/entries — search/filter/pagination-aware. */
+export interface EntriesPage {
+  items: UnifiedEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
