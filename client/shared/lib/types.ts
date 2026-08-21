@@ -80,10 +80,18 @@ export interface CashPoint {
   cash: number;
 }
 
+/** One month's income and expense totals, not cumulative — for the trend and month-over-month charts. */
+export interface MonthlyPoint {
+  month: string;
+  income: number;
+  expenses: number;
+}
+
 /** Response from GET /api/insights. */
 export interface DashboardInsights {
   categoryBreakdown: CategorySlice[];
   cashSeries: CashPoint[];
+  monthlySeries: MonthlyPoint[];
 }
 
 /** A unified entry from GET /api/entries. */

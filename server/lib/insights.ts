@@ -32,9 +32,16 @@ export interface CashPoint {
   cash: number; // running balance at month end
 }
 
+export interface MonthlyPoint {
+  month: string; // "YYYY-MM"
+  income: number; // that month's income, not cumulative
+  expenses: number; // that month's expenses, not cumulative
+}
+
 export interface Insights {
   categoryBreakdown: CategorySlice[];
   cashSeries: CashPoint[];
+  monthlySeries: MonthlyPoint[];
 }
 
 function monthKey(d: Date): string {
@@ -114,12 +121,63 @@ export function computeCashSeries(
   return series;
 }
 
+/**
+ * Per-month income and expense totals — unlike computeCashSeries, these
+ * are kept separate and not netted into a running balance, so a revenue-
+ * vs-expense trend chart and a month-over-month view can both read off
+ * this one series instead of needing their own aggregation.
+ */
+export function computeMonthlySeries(entries: InsightEntry[]): MonthlyPoint[] {
+  if (entries.length === 0) return [];
+
+  const byMonth = new Map<string, { income: number; expenses: number }>();
+  for (const e of entries) {
+    const key = monthKey(new Date(e.date));
+    const bucket = byMonth.get(key) ?? { income: 0, expenses: 0 };
+    if (e.type === "income") bucket.income += e.amount;
+    else bucket.expenses += e.amount;
+    byMonth.set(key, bucket);
+  }
+
+  const keys = [...byMonth.keys()].sort();
+  const [startY, startM] = keys[0].split("-").map(Number);
+  const [endY, endM] = keys[keys.length - 1].split("-").map(Number);
+
+  const series: MonthlyPoint[] = [];
+  let y = startY;
+  let m = startM;
+  while (y < endY || (y === endY && m <= endM)) {
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    const bucket = byMonth.get(key) ?? { income: 0, expenses: 0 };
+    series.push({ month: key, income: Math.round(bucket.income), expenses: Math.round(bucket.expenses) });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return series;
+}
+
+/**
+ * `period`, when given, scopes categoryBreakdown and monthlySeries to that
+ * window (both are flow figures — "what happened in this period"). The
+ * running-balance cash chart deliberately stays all-time regardless — a
+ * balance chart needs full history to mean anything, same reasoning as
+ * why the Balance Sheet report is never date-filtered.
+ */
 export function computeInsights(
   entries: InsightEntry[],
-  investments: InvestmentEntry[]
+  investments: InvestmentEntry[],
+  period: { start: Date; end: Date } | null = null
 ): Insights {
+  const periodEntries = period
+    ? entries.filter((e) => {
+        const d = new Date(e.date);
+        return d >= period.start && d <= period.end;
+      })
+    : entries;
+
   return {
-    categoryBreakdown: computeCategoryBreakdown(entries),
+    categoryBreakdown: computeCategoryBreakdown(periodEntries),
     cashSeries: computeCashSeries(entries, investments),
+    monthlySeries: computeMonthlySeries(periodEntries),
   };
 }

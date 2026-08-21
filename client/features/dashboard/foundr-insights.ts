@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { apiGet } from "../../shared/lib/api";
 import type { DashboardInsights, CategorySlice, CashPoint } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
+import { rangeQueryParams, type RangePreset } from "../../shared/lib/dateRange";
 
 /**
  * <foundr-insights>
@@ -17,11 +18,17 @@ import { formatMoney } from "../../shared/lib/format";
 @customElement("foundr-insights")
 export class FoundrInsights extends LitElement {
   @property({ type: String }) businessId = "";
+  @property({ type: String }) range: RangePreset = "all-time";
   @state() private data: DashboardInsights | null = null;
   @state() private loading = true;
+  @state() private hoveredIndex: number | null = null;
+
+  private static readonly CHART_W = 320;
+  private static readonly PAD_L = 28;
+  private static readonly PAD_R = 28;
 
   protected updated(changed: PropertyValues<this>): void {
-    if (changed.has("businessId") && this.businessId) {
+    if ((changed.has("businessId") || changed.has("range")) && this.businessId) {
       void this.refresh();
     }
   }
@@ -29,7 +36,9 @@ export class FoundrInsights extends LitElement {
   async refresh(): Promise<void> {
     if (!this.businessId) return;
     try {
-      this.data = await apiGet<DashboardInsights>(`/insights?businessId=${this.businessId}`);
+      this.data = await apiGet<DashboardInsights>(
+        `/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}`
+      );
     } catch {
       this.data = null;
     } finally {
@@ -63,15 +72,32 @@ export class FoundrInsights extends LitElement {
     .empty strong { color: var(--ink, #1C1C1C); font-size: 16px; }
 
     /* category bars */
-    .bar-row { margin-bottom: 14px; }
+    .bar-row { position: relative; margin-bottom: 14px; }
     .bar-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
     .bar-head .name { color: var(--ink, #1C1C1C); font-weight: 500; }
     .bar-head .val { color: var(--ink-soft, #6B6B66); }
-    .bar-track { height: 10px; background: var(--sage-soft, #DDE7E0); border-radius: 999px; overflow: hidden; }
+    .bar-track { height: 10px; background: var(--sage-soft, #DDE7E0); border-radius: 999px; overflow: hidden; cursor: default; }
     .bar-fill { height: 100%; background: var(--forest, #2D4A3E); border-radius: 999px; transition: width 0.5s ease; }
+
+    /* Hover tooltip on a bar row — pure CSS reveal, shows exact amount and
+       share of the total, which the always-visible label doesn't. */
+    .bar-tooltip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: var(--ink, #1C1C1C); color: #fff; font-size: 11.5px; font-weight: 500;
+      padding: 5px 10px; border-radius: 8px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 2;
+    }
+    .bar-row:hover .bar-tooltip { opacity: 1; }
 
     svg { display: block; width: 100%; height: auto; }
     .axis-label { font-size: 10px; fill: var(--ink-soft, #6B6B66); font-family: var(--font-body, sans-serif); }
+    .chart-hit-area { fill: transparent; cursor: crosshair; }
+    .guide-line { stroke: var(--ink-soft, #6B6B66); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; pointer-events: none; }
+    .hover-point { fill: var(--forest, #2D4A3E); stroke: var(--surface, #FAFAF7); stroke-width: 2; pointer-events: none; }
+    .tooltip-box { fill: var(--ink, #1C1C1C); pointer-events: none; }
+    .tooltip-text { fill: #fff; font-family: var(--font-body, sans-serif); pointer-events: none; }
+    .tooltip-text.label { font-size: 9px; opacity: 0.75; }
+    .tooltip-text.value { font-size: 11px; font-weight: 600; }
 
     @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } }
   `;
@@ -81,6 +107,7 @@ export class FoundrInsights extends LitElement {
       return html`<div class="empty">No expenses to break down yet.</div>`;
     }
     const max = Math.max(...slices.map((s) => s.total));
+    const grandTotal = slices.reduce((sum, s) => sum + s.total, 0);
     const top = slices.slice(0, 6); // keep it readable
     return html`
       ${top.map(
@@ -92,6 +119,9 @@ export class FoundrInsights extends LitElement {
             </div>
             <div class="bar-track">
               <div class="bar-fill" style="width: ${max > 0 ? (s.total / max) * 100 : 0}%"></div>
+            </div>
+            <div class="bar-tooltip">
+              ${this._money(s.total)} · ${grandTotal > 0 ? Math.round((s.total / grandTotal) * 100) : 0}% of total
             </div>
           </div>
         `
@@ -132,6 +162,15 @@ export class FoundrInsights extends LitElement {
     const zeroY = y(0);
     const showZero = minCash < 0 && maxCash > 0;
 
+    const hover = this.hoveredIndex !== null ? series[this.hoveredIndex] : null;
+    const hoverX = this.hoveredIndex !== null ? x(this.hoveredIndex) : 0;
+    const hoverY = hover ? y(hover.cash) : 0;
+
+    // Tooltip box, clamped so it never overflows the chart's left/right edge.
+    const boxW = 62, boxH = 30;
+    const boxX = Math.max(padL, Math.min(hoverX - boxW / 2, W - padR - boxW));
+    const boxY = padT;
+
     return html`
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cash over time">
         ${showZero
@@ -150,8 +189,33 @@ export class FoundrInsights extends LitElement {
             ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>`
             : "";
         })}
+        ${hover
+          ? svg`
+              <line class="guide-line" x1=${hoverX} y1=${padT} x2=${hoverX} y2=${H - padB} />
+              <circle class="hover-point" cx=${hoverX} cy=${hoverY} r="5" />
+              <rect class="tooltip-box" x=${boxX} y=${boxY} width=${boxW} height=${boxH} rx="6" />
+              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${boxY + 12} text-anchor="middle">${this._monthLabel(hover.month)}</text>
+              <text class="tooltip-text value" x=${boxX + boxW / 2} y=${boxY + 24} text-anchor="middle">${this._money(hover.cash)}</text>
+            `
+          : ""}
+        <rect class="chart-hit-area" x="0" y="0" width=${W} height=${H}
+          @mousemove=${(e: MouseEvent) => this._onChartHover(e, series)}
+          @mouseleave=${() => { this.hoveredIndex = null; }}
+        />
       </svg>
     `;
+  }
+
+  private _onChartHover(e: MouseEvent, series: CashPoint[]): void {
+    const svg = (e.currentTarget as SVGElement).ownerSVGElement ?? (e.currentTarget as unknown as SVGSVGElement);
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const scaleX = FoundrInsights.CHART_W / rect.width;
+    const svgX = (e.clientX - rect.left) * scaleX;
+    const innerW = FoundrInsights.CHART_W - FoundrInsights.PAD_L - FoundrInsights.PAD_R;
+    const t = (svgX - FoundrInsights.PAD_L) / innerW;
+    const idx = Math.round(t * (series.length - 1));
+    this.hoveredIndex = Math.max(0, Math.min(series.length - 1, idx));
   }
 
   render(): TemplateResult {

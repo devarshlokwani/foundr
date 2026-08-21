@@ -13,6 +13,7 @@ import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
+import { RANGE_PRESETS, getStoredRangePreset, setStoredRangePreset, rangeQueryParams, type RangePreset } from "../../shared/lib/dateRange";
 import "../../shared/components/foundr-tour-overlay";
 
 /**
@@ -34,6 +35,7 @@ export class FoundrDashboard extends LitElement {
   @state() private needsOnboarding = false;
   @state() private businessId = "";
   @state() private businessLabel = "";
+  @state() private range: RangePreset = getStoredRangePreset();
     @query("foundr-insights") private insightsEl?: FoundrInsights;
 
   connectedCallback(): void {
@@ -97,13 +99,24 @@ export class FoundrDashboard extends LitElement {
       return;
     }
     try {
-      this.metrics = await apiGet<DashboardMetrics>(`/metrics?businessId=${this.businessId}`);
+      this.metrics = await apiGet<DashboardMetrics>(
+        `/metrics?businessId=${this.businessId}${rangeQueryParams(this.range)}`
+      );
       this.error = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't load your metrics.";
     } finally {
       this.loading = false;
     }
+  }
+
+  private async _onRangeChange(e: Event): Promise<void> {
+    const preset = (e.target as HTMLSelectElement).value as RangePreset;
+    this.range = preset;
+    setStoredRangePreset(preset);
+    if (this.insightsEl) this.insightsEl.range = preset;
+    await this._loadMetrics();
+    await this.insightsEl?.refresh();
   }
 
   private _openModal(): void {
@@ -172,8 +185,17 @@ export class FoundrDashboard extends LitElement {
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
+    .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .greeting-sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0 0 28px; }
+    .range-select {
+      font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-pill, 999px); padding: 9px 16px; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px;
+    }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
     .kpi {
@@ -244,15 +266,29 @@ export class FoundrDashboard extends LitElement {
   // isEmpty defaults to true while loading, so this reads naturally as the
   // first-time-user copy until real data says otherwise.
   private _renderHeader(): TemplateResult {
-    return this.isEmpty
-      ? html`
-          <h1 class="greeting">Welcome, ${this.userName}.</h1>
-          <p class="greeting-sub">Let's get your first numbers in.</p>
-        `
-      : html`
-          <h1 class="greeting">Hello, ${this.userName}.</h1>
-          <p class="greeting-sub">Here's where your business stands today.</p>
-        `;
+    const showRange = !this.loading && !this.error && !this.isEmpty;
+    return html`
+      <div class="header-row">
+        <div>
+          ${this.isEmpty
+            ? html`
+                <h1 class="greeting">Welcome, ${this.userName}.</h1>
+                <p class="greeting-sub">Let's get your first numbers in.</p>
+              `
+            : html`
+                <h1 class="greeting">Hello, ${this.userName}.</h1>
+                <p class="greeting-sub">Here's where your business stands today.</p>
+              `}
+        </div>
+        ${showRange
+          ? html`
+              <select class="range-select" .value=${this.range} @change=${this._onRangeChange}>
+                ${RANGE_PRESETS.map((r) => html`<option value=${r.code}>${r.label}</option>`)}
+              </select>
+            `
+          : ""}
+      </div>
+    `;
   }
 
   private _renderEmpty(): TemplateResult {
@@ -308,7 +344,7 @@ export class FoundrDashboard extends LitElement {
           </div>
         </div>
 
-        <foundr-insights businessId=${this.businessId}></foundr-insights>
+        <foundr-insights businessId=${this.businessId} range=${this.range}></foundr-insights>
       </div>
     `;
   }

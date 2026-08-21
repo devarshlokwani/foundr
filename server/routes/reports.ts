@@ -8,6 +8,7 @@ import { DebtModel } from "../models/Debt.js";
 import { computeMetrics } from "../lib/metrics.js";
 import { computeCategoryBreakdown, computeRevenueBreakdown } from "../lib/insights.js";
 import { computeBalanceSheet } from "../lib/balanceSheet.js";
+import { parseRangeQuery } from "../lib/dateRange.js";
 
 /**
  * Business reports — margins (a cash-basis income breakdown: revenue by
@@ -16,7 +17,9 @@ import { computeBalanceSheet } from "../lib/balanceSheet.js";
  * one business. Both exported as CSV by the frontend.
  *
  * Routes:
- *   GET /api/reports/margins?businessId=
+ *   GET /api/reports/margins?businessId=&rangeStart=&rangeEnd=  revenue and
+ *     expense breakdowns are scoped to the range if given; balance sheet
+ *     never accepts a range — it's always a live, all-time snapshot.
  *   GET /api/reports/balance-sheet?businessId=
  */
 const router = Router();
@@ -27,22 +30,30 @@ router.use(requireBusiness);
 router.get("/margins", async (req: Request, res: Response) => {
   const userId = getUserId(req)!;
   const businessId = req.businessId;
+  const { period, dateFilter } = parseRangeQuery(req.query as Record<string, unknown>);
 
   const [entries, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId, businessId }).select("type amount category date"),
-    InvestmentModel.find({ userId, businessId }).select("amount date"),
-    DrawModel.find({ userId, businessId }).select("amount"),
-    DebtModel.find({ userId, businessId }).select("type amount"),
+    ExpenseModel.find({ userId, businessId, ...dateFilter }).select("type amount category date"),
+    InvestmentModel.find({ userId, businessId, ...dateFilter }).select("amount date"),
+    DrawModel.find({ userId, businessId, ...dateFilter }).select("amount"),
+    DebtModel.find({ userId, businessId, ...dateFilter }).select("type amount"),
   ]);
 
   const totalInvested = investments.reduce((sum, i) => sum + i.amount, 0);
   const totalDraws = draws.reduce((sum, d) => sum + d.amount, 0);
   const netBorrowed = debts.reduce((sum, d) => sum + (d.type === "borrow" ? d.amount : -d.amount), 0);
 
+  const periodEntries = period
+    ? entries.filter((e) => {
+        const d = new Date(e.date);
+        return d >= period.start && d <= period.end;
+      })
+    : entries;
+
   res.json({
-    revenue: computeRevenueBreakdown(entries),
-    expenses: computeCategoryBreakdown(entries),
-    metrics: computeMetrics(entries, totalInvested, totalDraws, netBorrowed),
+    revenue: computeRevenueBreakdown(periodEntries),
+    expenses: computeCategoryBreakdown(periodEntries),
+    metrics: computeMetrics(entries, totalInvested, totalDraws, netBorrowed, period),
   });
 });
 

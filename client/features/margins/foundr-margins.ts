@@ -1,25 +1,31 @@
-import { LitElement, html, css, type TemplateResult } from "lit";
+import { LitElement, html, css, svg, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getClerk } from "../auth/auth.service";
 import { apiGet } from "../../shared/lib/api";
-import type { MarginsReport, CategorySlice, BalanceSheet } from "../../shared/lib/types";
+import type { MarginsReport, CategorySlice, BalanceSheet, DashboardInsights, MonthlyPoint } from "../../shared/lib/types";
 import { formatMoney, getCurrency } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import { downloadCsv } from "../../shared/lib/csv";
+import { RANGE_PRESETS, getStoredRangePreset, setStoredRangePreset, rangeQueryParams, type RangePreset } from "../../shared/lib/dateRange";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-tour-overlay";
 
-type Section = "margins" | "balance-sheet";
+type Section = "margins" | "trends" | "balance-sheet";
+
+/** Categorical palette for the donut chart — the accent colour from each
+ * of the app's own themes, so the chart reads as branded, not generic. */
+const DONUT_COLORS = ["#2D4A3E", "#4C8267", "#4B2E83", "#1F5A6E", "#B5502E", "#5B7A99", "#8AAF9A"];
 
 /**
  * <foundr-margins>
- * Financial reports, two views: Margins (a cash-basis income breakdown —
- * revenue by category, expenses by category, net margin) and Balance
- * Sheet (Assets = Liabilities + Equity, made possible by Draws and Debt).
- * Both exportable as CSV with one click.
+ * Financial reports, three views: Margins (a cash-basis income breakdown —
+ * revenue by category, expenses by category, net margin), Trends (revenue
+ * vs. expense over time, month-over-month net, category donut), and
+ * Balance Sheet (Assets = Liabilities + Equity, made possible by Draws
+ * and Debt). Margins and Balance Sheet are exportable as CSV.
  *
  * Auth-guarded like the dashboard. Reachable at /margins.
  */
@@ -29,9 +35,12 @@ export class FoundrMargins extends LitElement {
   @state() private error = "";
   @state() private report: MarginsReport | null = null;
   @state() private balanceSheet: BalanceSheet | null = null;
+  @state() private insights: DashboardInsights | null = null;
   @state() private section: Section = "margins";
   @state() private businessName = "";
   @state() private businessId = "";
+  @state() private hoveredMonth: number | null = null;
+  @state() private range: RangePreset = getStoredRangePreset();
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -72,18 +81,28 @@ export class FoundrMargins extends LitElement {
       return;
     }
     try {
-      const [report, balanceSheet] = await Promise.all([
-        apiGet<MarginsReport>(`/reports/margins?businessId=${this.businessId}`),
+      const [report, balanceSheet, insights] = await Promise.all([
+        apiGet<MarginsReport>(`/reports/margins?businessId=${this.businessId}${rangeQueryParams(this.range)}`),
         apiGet<BalanceSheet>(`/reports/balance-sheet?businessId=${this.businessId}`),
+        apiGet<DashboardInsights>(`/insights?businessId=${this.businessId}${rangeQueryParams(this.range)}`),
       ]);
       this.report = report;
       this.balanceSheet = balanceSheet;
+      this.insights = insights;
       this.error = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't load your reports.";
     } finally {
       this.loading = false;
     }
+  }
+
+  private async _onRangeChange(e: Event): Promise<void> {
+    const preset = (e.target as HTMLSelectElement).value as RangePreset;
+    this.range = preset;
+    setStoredRangePreset(preset);
+    this.loading = true;
+    await this._load();
   }
 
   private get isEmpty(): boolean {
@@ -226,6 +245,15 @@ export class FoundrMargins extends LitElement {
     .section-tab.active { color: var(--ink, #1C1C1C); }
 
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
+    .head-actions { display: flex; align-items: center; gap: 10px; }
+    .range-select {
+      font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-pill, 999px); padding: 9px 16px; cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px;
+    }
     .export-btn {
       background: var(--forest, #2D4A3E); color: #fff; font-size: 14px; font-weight: 500;
       padding: 11px 18px; border-radius: var(--radius-pill, 999px); display: flex; align-items: center; gap: 8px;
@@ -259,22 +287,61 @@ export class FoundrMargins extends LitElement {
     .card h3 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
     .card .sub { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 20px; }
 
-    .bar-row { margin-bottom: 16px; }
+    .bar-row { position: relative; margin-bottom: 16px; }
     .bar-row:last-child { margin-bottom: 0; }
     .bar-head { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 6px; gap: 10px; }
     .bar-head .name { color: var(--ink, #1C1C1C); font-weight: 500; }
     .bar-head .val { color: var(--ink-soft, #6B6B66); white-space: nowrap; }
-    .bar-track { height: 8px; border-radius: 999px; overflow: hidden; }
+    .bar-track { height: 8px; border-radius: 999px; overflow: hidden; cursor: default; }
     .bar-track.rev { background: var(--sage-soft, #DDE7E0); }
     .bar-track.exp { background: var(--danger-bg, #FBEAE9); }
     .bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
     .bar-fill.rev { background: var(--forest, #2D4A3E); }
+    .bar-tooltip {
+      position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: var(--ink, #1C1C1C); color: #fff; font-size: 11.5px; font-weight: 500;
+      padding: 5px 10px; border-radius: 8px; white-space: nowrap;
+      opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 2;
+    }
+    .bar-row:hover .bar-tooltip { opacity: 1; }
     .bar-fill.exp { background: var(--danger, #D9534F); }
 
     .card-total {
       display: flex; justify-content: space-between; font-size: 14px; font-weight: 600;
       margin-top: 18px; padding-top: 16px; border-top: 0.5px solid var(--line, #E2DFD7);
     }
+
+    /* Trends tab — charts */
+    .trends-grid { margin-top: 16px; }
+    .chart-empty { font-size: 13px; color: var(--ink-soft, #6B6B66); padding: 30px 0; text-align: center; }
+    svg { display: block; width: 100%; height: auto; }
+    .axis-label { font-size: 10px; fill: var(--ink-soft, #6B6B66); font-family: var(--font-body, sans-serif); }
+    .chart-hit-area { fill: transparent; cursor: crosshair; }
+    .guide-line { stroke: var(--ink-soft, #6B6B66); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; pointer-events: none; }
+    .hover-point { stroke: var(--surface, #FAFAF7); stroke-width: 2; pointer-events: none; }
+    .hover-point.rev { fill: var(--forest, #2D4A3E); }
+    .hover-point.exp { fill: var(--danger, #D9534F); }
+    .tooltip-box { fill: var(--ink, #1C1C1C); pointer-events: none; }
+    .tooltip-text { fill: #fff; font-family: var(--font-body, sans-serif); pointer-events: none; }
+    .tooltip-text.label { font-size: 9px; opacity: 0.75; }
+    .tooltip-text.value { font-size: 10.5px; font-weight: 600; }
+    .tooltip-text.value.rev { fill: var(--sage, #8AAF9A); }
+    .tooltip-text.value.exp { fill: #E8A6A2; }
+    .mom-value { font-size: 10px; font-weight: 600; fill: var(--ink, #1C1C1C); font-family: var(--font-body, sans-serif); }
+
+    .chart-legend { display: flex; gap: 18px; margin-bottom: 10px; font-size: 12.5px; color: var(--ink-soft, #6B6B66); }
+    .chart-legend .dot, .donut-legend-row .dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+    }
+    .chart-legend .dot.rev { background: var(--forest, #2D4A3E); }
+    .chart-legend .dot.exp { background: var(--danger, #D9534F); }
+
+    .donut-wrap { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .donut-wrap svg { width: 150px; height: 150px; flex-shrink: 0; }
+    .donut-legend { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 8px; }
+    .donut-legend-row { display: flex; align-items: center; font-size: 13px; }
+    .donut-legend-row .name { flex: 1; min-width: 0; color: var(--ink, #1C1C1C); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .donut-legend-row .pct { color: var(--ink-soft, #6B6B66); font-weight: 500; }
 
     .state { text-align: center; padding: 80px 20px; }
     .state-icon {
@@ -379,24 +446,43 @@ export class FoundrMargins extends LitElement {
         </div>
         ${ready
           ? html`
-              <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
-                <i class="ti ti-download" aria-hidden="true"></i>Export CSV
-              </button>
+              <div class="head-actions">
+                ${this.section !== "balance-sheet"
+                  ? html`
+                      <select class="range-select" .value=${this.range} @change=${this._onRangeChange}>
+                        ${RANGE_PRESETS.map((r) => html`<option value=${r.code}>${r.label}</option>`)}
+                      </select>
+                    `
+                  : ""}
+                ${this.section !== "trends"
+                  ? html`
+                      <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
+                        <i class="ti ti-download" aria-hidden="true"></i>Export CSV
+                      </button>
+                    `
+                  : ""}
+              </div>
             `
           : ""}
       </div>
       ${ready
         ? html`
-            <div class="section-tabs" style="--tab-w: 150px">
-              <div class="section-indicator" style="transform: translateX(${this.section === "margins" ? 0 : 150}px)"></div>
+            <div class="section-tabs" style="--tab-w: 130px">
+              <div class="section-indicator" style="transform: translateX(${this._sectionIndex * 130}px)"></div>
               <button class="section-tab ${this.section === "margins" ? "active" : ""}"
                 @click=${() => { this.section = "margins"; }}>Margins</button>
+              <button class="section-tab ${this.section === "trends" ? "active" : ""}"
+                @click=${() => { this.section = "trends"; }}>Trends</button>
               <button class="section-tab ${this.section === "balance-sheet" ? "active" : ""}"
                 @click=${() => { this.section = "balance-sheet"; }}>Balance Sheet</button>
             </div>
           `
         : ""}
     `;
+  }
+
+  private get _sectionIndex(): number {
+    return this.section === "margins" ? 0 : this.section === "trends" ? 1 : 2;
   }
 
   private _renderEmpty(): TemplateResult {
@@ -415,6 +501,7 @@ export class FoundrMargins extends LitElement {
       return html`<div class="bar-row"><span class="bar-head"><span class="name">Nothing here yet</span></span></div>`;
     }
     const max = Math.max(...slices.map((s) => s.total));
+    const grandTotal = slices.reduce((sum, s) => sum + s.total, 0);
     return html`
       ${slices.map(
         (s) => html`
@@ -425,6 +512,9 @@ export class FoundrMargins extends LitElement {
             </div>
             <div class="bar-track ${variant}">
               <div class="bar-fill ${variant}" style="width: ${max > 0 ? (s.total / max) * 100 : 0}%"></div>
+            </div>
+            <div class="bar-tooltip">
+              ${this._money(s.total)} · ${grandTotal > 0 ? Math.round((s.total / grandTotal) * 100) : 0}% of total
             </div>
           </div>
         `
@@ -470,6 +560,195 @@ export class FoundrMargins extends LitElement {
             <div class="card-total"><span>Total expenses</span><span>${this._money(r.metrics.totalExpenses)}</span></div>
           </div>
         </div>
+    `;
+  }
+
+  private _monthLabel(key: string): string {
+    const [y, m] = key.split("-").map(Number);
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[m - 1]} ${String(y).slice(2)}`;
+  }
+
+  private _renderTrends(): TemplateResult {
+    const series = this.insights?.monthlySeries ?? [];
+    const expenseSlices = this.report?.expenses ?? [];
+    return html`
+      <div class="card">
+        <h3>Revenue vs. expenses</h3>
+        <p class="sub">Month by month — where the two lines cross is where you stopped losing money</p>
+        ${this._renderTrendChart(series)}
+      </div>
+      <div class="grid trends-grid">
+        <div class="card">
+          <h3>Net by month</h3>
+          <p class="sub">Income minus expenses, per month</p>
+          ${this._renderMonthOverMonth(series)}
+        </div>
+        <div class="card">
+          <h3>Where it went</h3>
+          <p class="sub">Expense categories, as a share of the whole</p>
+          ${this._renderDonut(expenseSlices)}
+        </div>
+      </div>
+    `;
+  }
+
+  // ---- Revenue vs. expense trend (dual line, same hover pattern as foundr-insights.ts's cash chart) ----
+
+  private _renderTrendChart(series: MonthlyPoint[]): TemplateResult {
+    if (series.length < 2) {
+      return html`<div class="chart-empty">Add entries across more than one month to see a trend.</div>`;
+    }
+
+    const W = 680, H = 200, padL = 36, padR = 20, padT = 16, padB = 26;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const allVals = series.flatMap((p) => [p.income, p.expenses]);
+    const maxV = Math.max(...allVals, 0);
+
+    const x = (i: number) => padL + (i / (series.length - 1)) * innerW;
+    const y = (v: number) => padT + innerH - (maxV > 0 ? (v / maxV) * innerH : 0);
+
+    const incomeLine = series.map((p, i) => `${x(i)},${y(p.income)}`).join(" ");
+    const expenseLine = series.map((p, i) => `${x(i)},${y(p.expenses)}`).join(" ");
+
+    const hover = this.hoveredMonth !== null ? series[this.hoveredMonth] : null;
+    const hoverX = this.hoveredMonth !== null ? x(this.hoveredMonth) : 0;
+    const boxW = 96, boxH = 44;
+    const boxX = Math.max(padL, Math.min(hoverX - boxW / 2, W - padR - boxW));
+
+    return html`
+      <div class="chart-legend">
+        <span><i class="dot rev"></i>Revenue</span>
+        <span><i class="dot exp"></i>Expenses</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenue vs expenses by month">
+        <polyline points=${incomeLine} fill="none" stroke="var(--forest, #2D4A3E)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+        <polyline points=${expenseLine} fill="none" stroke="var(--danger, #D9534F)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+        ${series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.income)} r="3" fill="var(--forest, #2D4A3E)" />`)}
+        ${series.map((p, i) => svg`<circle cx=${x(i)} cy=${y(p.expenses)} r="3" fill="var(--danger, #D9534F)" />`)}
+        ${series.map((p, i) => {
+          const show = series.length <= 6 || i === 0 || i === series.length - 1 || i === Math.floor(series.length / 2);
+          return show
+            ? svg`<text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>`
+            : "";
+        })}
+        ${hover
+          ? svg`
+              <line class="guide-line" x1=${hoverX} y1=${padT} x2=${hoverX} y2=${H - padB} />
+              <circle class="hover-point rev" cx=${hoverX} cy=${y(hover.income)} r="5" />
+              <circle class="hover-point exp" cx=${hoverX} cy=${y(hover.expenses)} r="5" />
+              <rect class="tooltip-box" x=${boxX} y=${padT} width=${boxW} height=${boxH} rx="6" />
+              <text class="tooltip-text label" x=${boxX + boxW / 2} y=${padT + 12} text-anchor="middle">${this._monthLabel(hover.month)}</text>
+              <text class="tooltip-text value rev" x=${boxX + boxW / 2} y=${padT + 26} text-anchor="middle">${this._money(hover.income)}</text>
+              <text class="tooltip-text value exp" x=${boxX + boxW / 2} y=${padT + 39} text-anchor="middle">${this._money(hover.expenses)}</text>
+            `
+          : ""}
+        <rect class="chart-hit-area" x="0" y="0" width=${W} height=${H}
+          @mousemove=${(e: MouseEvent) => this._onTrendHover(e, series, W, padL, padR)}
+          @mouseleave=${() => { this.hoveredMonth = null; }}
+        />
+      </svg>
+    `;
+  }
+
+  private _onTrendHover(e: MouseEvent, series: MonthlyPoint[], W: number, padL: number, padR: number): void {
+    const svgEl = (e.currentTarget as SVGElement).ownerSVGElement;
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const svgX = (e.clientX - rect.left) * (W / rect.width);
+    const innerW = W - padL - padR;
+    const t = (svgX - padL) / innerW;
+    const idx = Math.round(t * (series.length - 1));
+    this.hoveredMonth = Math.max(0, Math.min(series.length - 1, idx));
+  }
+
+  // ---- Month-over-month net (single bar per month, colour by sign) ----
+
+  private _renderMonthOverMonth(series: MonthlyPoint[]): TemplateResult {
+    if (series.length === 0) {
+      return html`<div class="chart-empty">Nothing tracked yet.</div>`;
+    }
+    const nets = series.map((p) => p.income - p.expenses);
+    const maxAbs = Math.max(...nets.map((n) => Math.abs(n)), 1);
+
+    const W = 320, H = 190, padL = 10, padR = 10, padT = 20, padB = 26;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const zeroY = padT + innerH / 2;
+    const barW = Math.min(36, (innerW / series.length) * 0.55);
+
+    const x = (i: number) => padL + (innerW / series.length) * (i + 0.5);
+    const barHeight = (n: number) => (Math.abs(n) / maxAbs) * (innerH / 2);
+
+    return html`
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net profit or loss by month">
+        <line x1=${padL} y1=${zeroY} x2=${W - padR} y2=${zeroY} stroke="var(--line, #E2DFD7)" stroke-width="1" />
+        ${series.map((p, i) => {
+          const net = nets[i];
+          const h = barHeight(net);
+          const positive = net >= 0;
+          const barY = positive ? zeroY - h : zeroY;
+          return svg`
+            <rect x=${x(i) - barW / 2} y=${barY} width=${barW} height=${Math.max(h, 1)} rx="4"
+              fill=${positive ? "var(--forest, #2D4A3E)" : "var(--danger, #D9534F)"} />
+            <text x=${x(i)} y=${positive ? barY - 5 : barY + h + 13} text-anchor="middle" class="mom-value">${this._money(net)}</text>
+            <text x=${x(i)} y=${H - 8} text-anchor="middle" class="axis-label">${this._monthLabel(p.month)}</text>
+          `;
+        })}
+      </svg>
+    `;
+  }
+
+  // ---- Category donut (reuses the already-loaded expense breakdown, no extra fetch) ----
+
+  private _renderDonut(slices: CategorySlice[]): TemplateResult {
+    if (slices.length === 0) {
+      return html`<div class="chart-empty">No expenses to break down yet.</div>`;
+    }
+    // Cap to the biggest 6 + an "Other" bucket so the ring stays readable.
+    const sorted = [...slices].sort((a, b) => b.total - a.total);
+    const shown = sorted.slice(0, 6);
+    const rest = sorted.slice(6).reduce((sum, s) => sum + s.total, 0);
+    const segments = rest > 0 ? [...shown, { category: "Other", total: rest }] : shown;
+
+    const total = segments.reduce((sum, s) => sum + s.total, 0);
+    const cx = 90, cy = 90, r = 62, strokeWidth = 26;
+    const circumference = 2 * Math.PI * r;
+
+    let cumulative = 0;
+    const arcs = segments.map((s, i) => {
+      const frac = total > 0 ? s.total / total : 0;
+      const len = frac * circumference;
+      const arc = { ...s, color: DONUT_COLORS[i % DONUT_COLORS.length], dasharray: `${len} ${circumference - len}`, dashoffset: -cumulative, pct: Math.round(frac * 100) };
+      cumulative += len;
+      return arc;
+    });
+
+    return html`
+      <div class="donut-wrap">
+        <svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Expense categories">
+          <g transform="rotate(-90 ${cx} ${cy})">
+            ${arcs.map(
+              (a) => svg`<circle cx=${cx} cy=${cy} r=${r} fill="none" stroke=${a.color} stroke-width=${strokeWidth}
+                stroke-dasharray=${a.dasharray} stroke-dashoffset=${a.dashoffset} />`
+            )}
+          </g>
+        </svg>
+        <div class="donut-legend">
+          ${arcs.map(
+            (a) => html`
+              <div class="donut-legend-row">
+                <i class="dot" style="background:${a.color}"></i>
+                <span class="name">${a.category}</span>
+                <span class="pct">${a.pct}%</span>
+              </div>
+            `
+          )}
+        </div>
+      </div>
     `;
   }
 
@@ -558,6 +837,7 @@ export class FoundrMargins extends LitElement {
       if (this.error) body = html`<div class="error-box">${this.error}</div>`;
       else if (this.isEmpty) body = this._renderEmpty();
       else if (this.section === "margins") body = this._renderReport(this.report!);
+      else if (this.section === "trends") body = this._renderTrends();
       else body = this._renderBalanceSheet(this.balanceSheet!);
     }
 
