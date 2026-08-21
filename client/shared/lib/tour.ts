@@ -26,6 +26,15 @@ export interface TourStep {
 
 export const TOUR_STEPS: TourStep[] = [
   {
+    id: "startups",
+    path: "/business",
+    host: "foundr-business",
+    selector: ".grid",
+    icon: "ti-building-store",
+    title: "This is home base",
+    body: "Every startup or side hustle you track lives here, each with its own fully separate dashboard — numbers never mix between them. Pick one to get started, or add another anytime.",
+  },
+  {
     id: "kpis",
     path: "/dashboard",
     host: "foundr-dashboard",
@@ -62,15 +71,6 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Switch between a margins breakdown and a real Assets = Liabilities + Equity balance sheet, both generated automatically — export either as CSV whenever you need it.",
   },
   {
-    id: "startups",
-    path: "/business",
-    host: "foundr-business",
-    selector: ".grid",
-    icon: "ti-building-store",
-    title: "Run more than one startup",
-    body: "Every side hustle gets its own folder here, with a fully separate dashboard — numbers never mix between them. Switch anytime, or add another.",
-  },
-  {
     id: "settings",
     path: "/settings",
     host: "foundr-settings",
@@ -91,6 +91,16 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 const STATE_KEY = "foundr-tour-state";
+
+/**
+ * Fired on `window` whenever the tour's state changes (start, step, end).
+ * Writing to sessionStorage alone doesn't wake up an already-mounted
+ * <foundr-tour-overlay> — the tab's own writes never fire the native
+ * `storage` event (that only fires in *other* tabs) — so launching the
+ * tour from a page it's already showing needs this to take effect
+ * immediately instead of only after a reload.
+ */
+export const TOUR_CHANGE_EVENT = "foundr-tour-change";
 
 interface TourState {
   stepIndex: number;
@@ -116,6 +126,7 @@ function writeState(stepIndex: number): void {
   } catch {
     // Storage unavailable (private browsing) — the tour just can't be enforced this session.
   }
+  window.dispatchEvent(new CustomEvent(TOUR_CHANGE_EVENT));
 }
 
 /** The active step, if a tour is in progress. */
@@ -136,6 +147,7 @@ export function endTour(): void {
   } catch {
     // ignore
   }
+  window.dispatchEvent(new CustomEvent(TOUR_CHANGE_EVENT));
 }
 
 /**

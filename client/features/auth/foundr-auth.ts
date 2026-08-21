@@ -48,15 +48,15 @@ export class FoundrAuth extends LitElement {
    * closed the tab and came straight back to /sign-in would otherwise hit
    * Clerk's own "already signed in" error the moment they submit the
    * form. If that session is still within the tab-close grace period,
-   * skip the form entirely and go straight to the dashboard — genuinely
-   * still logged in. If it's gone stale, checkSessionFreshness signs them
-   * out here so the form underneath behaves normally.
+   * skip the form entirely and go straight to the startup switcher —
+   * genuinely still logged in. If it's gone stale, checkSessionFreshness
+   * signs them out here so the form underneath behaves normally.
    */
   private async _checkExistingSession(): Promise<void> {
     const clerk = await getClerk();
     if (!clerk || !clerk.user) return;
     if (await checkSessionFreshness(clerk)) {
-      window.location.href = "/dashboard";
+      window.location.href = "/business";
     }
   }
 

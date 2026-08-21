@@ -275,7 +275,7 @@ export class FoundrBusiness extends LitElement {
       <form class="add-form" @submit=${this._addStartup}>
         <input
           type="text"
-          placeholder="e.g. My Second Startup"
+          placeholder="e.g. The Coffee Cart"
           .value=${this.newName}
           @input=${(e: Event) => { this.newName = (e.target as HTMLInputElement).value; }}
           ?disabled=${this.saving}

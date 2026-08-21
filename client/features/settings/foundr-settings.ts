@@ -451,6 +451,7 @@ export class FoundrSettings extends LitElement {
     .form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: 4px; }
 
     .btn-save-form {
+      display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
       background: var(--forest, #2D4A3E); color: #fff; padding: 11px 22px;
       border-radius: var(--radius-pill, 999px); font-size: 14px; font-weight: 500;
       transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
@@ -526,6 +527,15 @@ export class FoundrSettings extends LitElement {
       display: grid; place-items: center; font-size: 16px;
     }
     .startup-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .startup-add-form { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+    .startup-add-input {
+      flex: 1; min-width: 0; box-sizing: border-box; padding: 11px 14px; font-size: 14px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 14px); color: var(--ink, #1C1C1C);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .startup-add-input:focus { outline: none; border-color: var(--forest, #2D4A3E); box-shadow: 0 0 0 3px rgba(45,74,62,0.1); }
+    .startup-add-input::placeholder { color: var(--ink-soft, #6B6B66); }
     .startup-row .badge {
       display: flex; align-items: center; gap: 4px;
       font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
@@ -807,13 +817,17 @@ export class FoundrSettings extends LitElement {
           )}
         </div>
 
-        <form class="new-email-row" @submit=${this._addStartup}>
-          <div class="input-wrap">
-            <i class="ti ti-building-store" aria-hidden="true"></i>
-            <input type="text" placeholder="e.g. My Second Startup" .value=${this.newStartupName}
-              @input=${(e: Event) => { this.newStartupName = (e.target as HTMLInputElement).value; }} ?disabled=${this.startupSaving} />
-          </div>
-          <button type="submit" class="add-btn" ?disabled=${this.startupSaving}>
+        <form class="startup-add-form" @submit=${this._addStartup}>
+          <span class="startup-icon"><i class="ti ti-building-store" aria-hidden="true"></i></span>
+          <input
+            type="text"
+            class="startup-add-input"
+            placeholder="e.g. The Coffee Cart"
+            .value=${this.newStartupName}
+            @input=${(e: Event) => { this.newStartupName = (e.target as HTMLInputElement).value; }}
+            ?disabled=${this.startupSaving}
+          />
+          <button type="submit" class="btn-save-form" ?disabled=${this.startupSaving}>
             <i class="ti ti-plus" aria-hidden="true"></i>${this.startupSaving ? "Adding…" : "Add startup"}
           </button>
         </form>

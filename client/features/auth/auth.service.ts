@@ -87,7 +87,12 @@ export async function verifyEmailCode(code: string): Promise<AuthResult> {
     const res = await ctx.client.signUp.attemptEmailAddressVerification({ code });
     if (res.status === "complete" && res.createdSessionId) {
       await ctx.clerk.setActive({ session: res.createdSessionId });
-      window.location.href = "/dashboard";
+      // Every sign-in path lands on the startup switcher first, not the
+      // dashboard directly — a founder with more than one business should
+      // choose which one before seeing any numbers. A brand-new account
+      // (not onboarded yet) gets bounced from there straight into the
+      // wizard, same as before.
+      window.location.href = "/business";
       return { ok: true };
     }
     return { ok: false, error: "Couldn't finish sign-up. Please try again." };
@@ -107,7 +112,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
       await ctx.clerk.setActive({ session: res.createdSessionId });
       // Confirm the session actually took before navigating.
       if (ctx.clerk.user) {
-        window.location.href = "/dashboard";
+        window.location.href = "/business";
         return { ok: true };
       }
       return { ok: false, error: "Session didn't persist. Please try again." };
@@ -126,8 +131,8 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   try {
     await ctx.client.signIn.authenticateWithRedirect({
       strategy: "oauth_google",
-      redirectUrl: "/dashboard",
-      redirectUrlComplete: "/dashboard",
+      redirectUrl: "/business",
+      redirectUrlComplete: "/business",
     });
     return { ok: true };
   } catch (err) {
@@ -177,7 +182,7 @@ export async function setNewPassword(password: string): Promise<AuthResult> {
     const res = await ctx.client.signIn.resetPassword({ password });
     if (res.status === "complete" && res.createdSessionId) {
       await ctx.clerk.setActive({ session: res.createdSessionId });
-      window.location.href = "/dashboard";
+      window.location.href = "/business";
       return { ok: true };
     }
     return { ok: false, error: "Couldn't finish resetting your password. Please try again." };

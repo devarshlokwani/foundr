@@ -1,7 +1,7 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { gsap } from "gsap";
-import { TOUR_STEPS, type TourStep, getActiveTourStep, goToTourStep, endTour } from "../lib/tour";
+import { TOUR_STEPS, TOUR_CHANGE_EVENT, type TourStep, getActiveTourStep, goToTourStep, endTour } from "../lib/tour";
 
 const TOOLTIP_WIDTH = 340;
 const RING_PADDING = 8;
@@ -30,28 +30,52 @@ export class FoundrTourOverlay extends LitElement {
 
   private _pollTimer: number | null = null;
   private _ringPositioned = false;
+  /** Bumped on every _locate() call; async continuations bail out if a newer call has since superseded them — otherwise a stale poll or rAF callback from a previous step can overwrite the current one's highlight (the intermittent "highlight doesn't show" bug). */
+  private _locateGen = 0;
 
   private readonly _onResize = (): void => this._measure();
   private readonly _onKeydown = (e: KeyboardEvent): void => {
-    if (e.key === "Escape") this._end();
+    if (e.key === "Escape" && this.stepIndex !== -1) this._end();
   };
+  /**
+   * The single source of truth for what this instance shows. Re-run on
+   * connect AND whenever TOUR_CHANGE_EVENT fires — writing to
+   * sessionStorage alone doesn't wake up an already-mounted instance (see
+   * tour.ts), so without this, starting or advancing the tour from the
+   * page it's already showing would silently do nothing until a reload.
+   */
+  private readonly _onTourChange = (): void => this._sync();
 
   connectedCallback(): void {
     super.connectedCallback();
-    const step = getActiveTourStep();
-    if (!step || step.path !== window.location.pathname) return;
-
-    this.stepIndex = TOUR_STEPS.indexOf(step);
+    window.addEventListener(TOUR_CHANGE_EVENT, this._onTourChange);
     window.addEventListener("resize", this._onResize);
     window.addEventListener("keydown", this._onKeydown);
-    this._locate();
+    this._sync();
   }
 
   disconnectedCallback(): void {
+    window.removeEventListener(TOUR_CHANGE_EVENT, this._onTourChange);
     window.removeEventListener("resize", this._onResize);
     window.removeEventListener("keydown", this._onKeydown);
     if (this._pollTimer !== null) clearTimeout(this._pollTimer);
     super.disconnectedCallback();
+  }
+
+  private _sync(): void {
+    const step = getActiveTourStep();
+    const matches = step && step.path === window.location.pathname;
+    if (!matches) {
+      if (this.stepIndex !== -1) {
+        this.stepIndex = -1;
+        this._ringPositioned = false;
+      }
+      return;
+    }
+    const idx = TOUR_STEPS.indexOf(step);
+    if (idx === this.stepIndex) return;
+    this.stepIndex = idx;
+    this._locate();
   }
 
   private get _step(): TourStep | null {
@@ -64,8 +88,30 @@ export class FoundrTourOverlay extends LitElement {
     return host?.shadowRoot?.querySelector(step.selector) ?? null;
   }
 
-  /** Polls briefly for the target (it may render a tick after connect, or not at all in an empty state) before falling back to an untargeted centered card. */
+  /**
+   * Finds the target and highlights it. On a same-page step change the
+   * target already exists, so this resolves within a tick. On a fresh
+   * cross-page navigation it can take real time to appear — Clerk
+   * re-initialises, then the page's own auth check, business resolve, and
+   * data fetch all run sequentially before the element ever renders — so
+   * this polls for up to 8s rather than giving up early.
+   *
+   * Nothing renders (the overlay stays fully invisible) until the target
+   * is actually found — no centered placeholder while waiting. Showing
+   * one and then relocating it once the real position is known reads as
+   * a glitch; better to just wait, however long that takes, and appear
+   * once in the right place. The centered "untargeted" card is still the
+   * fallback if the target genuinely never appears (e.g. an empty
+   * dashboard with no KPI grid to show at all) — that's a real absence,
+   * not a loading delay, so it still needs to say something once the
+   * full window is exhausted.
+   */
   private _locate(): void {
+    const gen = ++this._locateGen;
+    if (this._pollTimer !== null) {
+      clearTimeout(this._pollTimer);
+      this._pollTimer = null;
+    }
     this.ready = false;
     this.rect = null;
     const step = this._step;
@@ -74,20 +120,22 @@ export class FoundrTourOverlay extends LitElement {
       return;
     }
 
-    const deadline = Date.now() + 1500;
+    const deadline = Date.now() + 8000;
     const tryFind = (): void => {
+      if (gen !== this._locateGen) return; // superseded by a newer _locate() call
       const el = this._resolveTarget(step);
       if (el) {
         el.scrollIntoView({ block: "center" });
         requestAnimationFrame(() => {
+          if (gen !== this._locateGen) return;
           this.rect = el.getBoundingClientRect();
           this.ready = true;
         });
         return;
       }
       if (Date.now() < deadline) {
-        this._pollTimer = window.setTimeout(tryFind, 120);
-      } else {
+        this._pollTimer = window.setTimeout(tryFind, 150);
+      } else if (gen === this._locateGen) {
         this.rect = null;
         this.ready = true;
       }
@@ -102,27 +150,19 @@ export class FoundrTourOverlay extends LitElement {
     this.rect = el ? el.getBoundingClientRect() : null;
   }
 
+  /** Just persists + dispatches — _sync() (triggered by the event this fires) is what actually updates this instance, whether it's the same page or a fresh one after navigating. */
   private _go(index: number): void {
     if (index >= TOUR_STEPS.length) {
-      this._end();
+      endTour();
       return;
     }
     if (index < 0) return;
     goToTourStep(index);
-    const next = TOUR_STEPS[index];
-    if (next.path === window.location.pathname) {
-      this.stepIndex = index;
-      this._locate();
-    }
-    // Otherwise goToTourStep already navigated away — this instance unmounts.
   }
 
   private readonly _next = (): void => this._go(this.stepIndex + 1);
   private readonly _back = (): void => this._go(this.stepIndex - 1);
-  private readonly _end = (): void => {
-    endTour();
-    this.stepIndex = -1;
-  };
+  private readonly _end = (): void => endTour();
 
   static styles = css`
     :host {
@@ -162,26 +202,37 @@ export class FoundrTourOverlay extends LitElement {
     .card {
       box-sizing: border-box;
       position: fixed; z-index: 602; width: ${TOOLTIP_WIDTH}px; max-width: calc(100vw - 32px);
-      background: var(--surface, #FAFAF7); border-radius: 22px; padding: 22px;
-      box-shadow: 0 30px 70px -20px rgba(31,51,41,0.5);
+      background: var(--surface, #FAFAF7); border-radius: 20px; padding: 18px 20px 20px;
+      box-shadow: 0 24px 60px -18px rgba(31,51,41,0.45);
     }
     .card.centered { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
+    /* Speech-bubble tail — a rotated square, half tucked behind the card
+       edge, same fill as the card, so it reads as one connected shape
+       pointing at whatever's highlighted rather than a floating block. */
+    .tail {
+      position: absolute; width: 18px; height: 18px; background: var(--surface, #FAFAF7);
+      border-radius: 4px; transform: translateX(-50%) rotate(45deg);
+    }
+    .tail.point-up { top: -8px; box-shadow: -2px -2px 4px -2px rgba(31,51,41,0.12); }
+    .tail.point-down { bottom: -8px; box-shadow: 2px 2px 4px -2px rgba(31,51,41,0.12); }
+
     .close-btn {
-      position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border-radius: 50%;
-      background: transparent; color: var(--ink-soft, #6B6B66); display: grid; place-items: center; font-size: 13px;
+      position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
+      background: transparent; color: var(--ink-soft, #6B6B66); display: grid; place-items: center; font-size: 12px;
       transition: background 0.15s ease, color 0.15s ease;
     }
     .close-btn:hover { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); }
 
+    .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-right: 22px; }
     .step-icon {
-      width: 42px; height: 42px; border-radius: 13px; margin-bottom: 14px;
+      width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
       background: linear-gradient(155deg, var(--forest, #2D4A3E), var(--forest-deep, #1F3329));
-      color: #fff; display: grid; place-items: center; font-size: 19px;
-      box-shadow: 0 8px 18px -8px rgba(31,51,41,0.55);
+      color: #fff; display: grid; place-items: center; font-size: 15px;
+      box-shadow: 0 6px 14px -6px rgba(31,51,41,0.55);
     }
-    .card h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: 19px; margin: 0 0 8px; padding-right: 20px; }
-    .card p { font-size: 13.5px; color: var(--ink-soft, #6B6B66); line-height: 1.55; margin: 0 0 18px; }
+    .card h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: 18px; margin: 0; }
+    .card p { font-size: 13.5px; color: var(--ink-soft, #6B6B66); line-height: 1.55; margin: 0 0 16px; }
 
     .footer { display: flex; align-items: center; gap: 10px; }
     .dots { flex: 1; display: flex; justify-content: center; gap: 6px; }
@@ -200,9 +251,9 @@ export class FoundrTourOverlay extends LitElement {
     .next-btn:active { transform: translate(0, 0); box-shadow: none; }
   `;
 
-  private _tooltipPosition(): { top?: string; bottom?: string; left: string } {
+  private _tooltipPosition(): { top?: string; bottom?: string; left: string; placement: "below" | "above"; tailLeft: number } {
     const rect = this.rect!;
-    const margin = 16;
+    const margin = 20;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const placeBelow = spaceBelow >= 200 || spaceBelow >= spaceAbove;
@@ -210,9 +261,12 @@ export class FoundrTourOverlay extends LitElement {
     let left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
     left = Math.max(16, Math.min(left, window.innerWidth - TOOLTIP_WIDTH - 16));
 
+    const targetCenter = rect.left + rect.width / 2;
+    const tailLeft = Math.max(28, Math.min(targetCenter - left, TOOLTIP_WIDTH - 28));
+
     return placeBelow
-      ? { top: `${rect.bottom + margin}px`, left: `${left}px` }
-      : { bottom: `${window.innerHeight - rect.top + margin}px`, left: `${left}px` };
+      ? { top: `${rect.bottom + margin}px`, left: `${left}px`, placement: "below", tailLeft }
+      : { bottom: `${window.innerHeight - rect.top + margin}px`, left: `${left}px`, placement: "above", tailLeft };
   }
 
   private _renderCard(step: TourStep): TemplateResult {
@@ -225,11 +279,16 @@ export class FoundrTourOverlay extends LitElement {
 
     return html`
       <div class="card ${untargeted ? "centered" : ""}" style=${style}>
+        ${pos
+          ? html`<div class="tail ${pos.placement === "below" ? "point-up" : "point-down"}" style="left:${pos.tailLeft}px;"></div>`
+          : ""}
         <button class="close-btn" @click=${this._end} aria-label="Close tour">
           <i class="ti ti-x" aria-hidden="true"></i>
         </button>
-        <div class="step-icon"><i class="ti ${step.icon}" aria-hidden="true"></i></div>
-        <h2>${step.title}</h2>
+        <div class="card-head">
+          <div class="step-icon"><i class="ti ${step.icon}" aria-hidden="true"></i></div>
+          <h2>${step.title}</h2>
+        </div>
         <p>${step.body}</p>
         <div class="footer">
           <button class="back-btn" @click=${this._back} ?disabled=${this.stepIndex === 0} aria-label="Back">
