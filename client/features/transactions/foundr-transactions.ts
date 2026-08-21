@@ -9,6 +9,7 @@ import { resolveActiveBusiness } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
+import "../../shared/components/foundr-tour-overlay";
 
 /**
  * <foundr-transactions>
@@ -283,6 +284,7 @@ export class FoundrTransactions extends LitElement {
             : ""}
         </div>
       </div>
+      <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }
 }

@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "./api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
 import { setCurrency, type CurrencyCode } from "./format";
 import type { Business } from "./types";
 
@@ -43,6 +43,27 @@ export async function renameBusiness(id: string, name: string): Promise<Business
 /** Updates a business's own display currency — a per-startup choice, not an account-wide one. */
 export async function setBusinessCurrency(id: string, currency: CurrencyCode): Promise<Business> {
   return apiPatch<Business>(`/businesses/${id}`, { currency });
+}
+
+/**
+ * Deletes a business. The backend refuses (409) if it still has any
+ * tracked expenses, investments, draws, or debts — a founder has to
+ * empty it first, so this can never silently destroy real ledger data.
+ */
+export async function deleteBusiness(id: string): Promise<void> {
+  await apiDelete(`/businesses/${id}`);
+}
+
+/**
+ * Client-side guardrails on top of the backend's own check, so the
+ * business switcher and Settings → Startups don't strand a founder with
+ * zero businesses or yank away the one they're currently looking at.
+ * Returns "" when deleting is fine, or a short reason to show/disable on.
+ */
+export function deleteBlockedReason(businesses: Business[], id: string, activeId: string): string {
+  if (businesses.length <= 1) return "You need at least one startup";
+  if (id === activeId) return "Switch to another startup first";
+  return "";
 }
 
 /** Persists the active business, locally and on the backend. */

@@ -2,12 +2,13 @@ import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { getClerk } from "../auth/auth.service";
 import { loadSettings } from "../../shared/lib/settings";
-import { fetchBusinesses, createBusiness, setActiveBusiness } from "../../shared/lib/business";
+import { fetchBusinesses, createBusiness, setActiveBusiness, deleteBusiness, deleteBlockedReason } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
+import { startTour } from "../../shared/lib/tour";
 import type { Business } from "../../shared/lib/types";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-profile-menu";
-import "../../shared/components/foundr-coming-soon-modal";
+import "../../shared/components/foundr-tour-overlay";
 
 /**
  * <foundr-business>
@@ -31,7 +32,8 @@ export class FoundrBusiness extends LitElement {
   @state() private newName = "";
   @state() private saving = false;
   @state() private error = "";
-  @state() private tourOpen = false;
+  @state() private editMode = false;
+  @state() private deletingId: string | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -75,6 +77,23 @@ export class FoundrBusiness extends LitElement {
     }
   }
 
+  /** Empty businesses only — the backend refuses if it still has tracked entries. */
+  private async _deleteFolder(b: Business): Promise<void> {
+    if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
+    if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
+
+    this.deletingId = b._id;
+    this.error = "";
+    try {
+      await deleteBusiness(b._id);
+      this.businesses = this.businesses.filter((x) => x._id !== b._id);
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't delete that startup.";
+    } finally {
+      this.deletingId = null;
+    }
+  }
+
   private async _addStartup(e: Event): Promise<void> {
     e.preventDefault();
     const name = this.newName.trim();
@@ -113,6 +132,9 @@ export class FoundrBusiness extends LitElement {
     .ti-building-store:before { content: "\\ea4e"; }
     .ti-plus:before { content: "\\eb0b"; }
     .ti-compass:before { content: "\\ea79"; }
+    .ti-pencil:before { content: "\\eb04"; }
+    .ti-check:before { content: "\\ea5e"; }
+    .ti-trash:before { content: "\\eb41"; }
     button { font-family: inherit; cursor: pointer; border: none; }
 
     .header {
@@ -127,8 +149,17 @@ export class FoundrBusiness extends LitElement {
     }
 
     .page { max-width: 1000px; margin: 0 auto; padding: 32px 28px; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     h1 { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0 0 28px; }
+
+    .edit-toggle {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
+      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7); color: var(--ink-soft, #6B6B66);
+      display: grid; place-items: center; font-size: 17px; transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    }
+    .edit-toggle:hover { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); }
+    .edit-toggle.active { background: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); color: #fff; }
 
     .page-area { position: relative; min-height: 320px; }
     .loader-overlay {
@@ -138,14 +169,17 @@ export class FoundrBusiness extends LitElement {
 
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
     .folder {
-      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
-      border-radius: var(--radius-card, 24px); padding: 22px; text-align: left;
-      display: flex; flex-direction: column; gap: 14px;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.15s ease;
+      position: relative; background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-card, 24px); transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.15s ease;
     }
-    .folder:hover:not(:disabled) { transform: translate(-4px, -4px); box-shadow: 4px 4px 0 var(--sage, #8AAF9A); border-color: var(--forest, #2D4A3E); }
-    .folder:disabled { opacity: 0.6; cursor: not-allowed; }
+    .folder:hover { transform: translate(-4px, -4px); box-shadow: 4px 4px 0 var(--sage, #8AAF9A); border-color: var(--forest, #2D4A3E); }
     .folder.active { border-color: var(--forest, #2D4A3E); }
+    .folder.editing:hover { transform: none; box-shadow: none; }
+    .folder-select {
+      width: 100%; background: transparent; border: none; padding: 22px; text-align: left;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .folder-select:disabled { opacity: 0.6; cursor: not-allowed; }
     .folder-icon {
       width: 44px; height: 44px; border-radius: 12px; background: var(--sage-soft, #DDE7E0);
       color: var(--forest, #2D4A3E); display: grid; place-items: center; font-size: 20px;
@@ -156,6 +190,13 @@ export class FoundrBusiness extends LitElement {
       font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
       background: var(--forest, #2D4A3E); color: #fff; padding: 3px 9px; border-radius: 999px; width: fit-content;
     }
+    .folder-delete {
+      position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+      background: var(--surface, #FAFAF7); border: 1px solid var(--danger-border, #F0C5C3); color: var(--danger, #A8302B);
+      display: grid; place-items: center; font-size: 14px; transition: background 0.15s ease;
+    }
+    .folder-delete:hover:not(:disabled) { background: var(--danger-bg, #FBEAE9); }
+    .folder-delete:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .add-folder {
       background: transparent; border: 1.5px dashed var(--line, #E2DFD7);
@@ -198,15 +239,34 @@ export class FoundrBusiness extends LitElement {
 
   private _renderFolder(b: Business): TemplateResult {
     const isActive = b._id === this.activeBusinessId;
+    const blocked = deleteBlockedReason(this.businesses, b._id, this.activeBusinessId);
     return html`
-      <button class="folder ${isActive ? "active" : ""}" ?disabled=${this.switchingId === b._id} @click=${() => this._select(b)}>
-        <div class="folder-icon"><i class="ti ti-building-store" aria-hidden="true"></i></div>
-        <div>
-          <div class="folder-name">${b.name}</div>
-          <div class="folder-meta">Created ${this._date(b.createdAt)}</div>
-        </div>
-        ${isActive ? html`<span class="folder-badge">Active</span>` : ""}
-      </button>
+      <div class="folder ${isActive ? "active" : ""} ${this.editMode ? "editing" : ""}">
+        <button
+          class="folder-select"
+          ?disabled=${this.switchingId === b._id || this.editMode}
+          @click=${() => this._select(b)}
+        >
+          <div class="folder-icon"><i class="ti ti-building-store" aria-hidden="true"></i></div>
+          <div>
+            <div class="folder-name">${b.name}</div>
+            <div class="folder-meta">Created ${this._date(b.createdAt)}</div>
+          </div>
+          ${isActive ? html`<span class="folder-badge">Active</span>` : ""}
+        </button>
+        ${this.editMode
+          ? html`
+              <button
+                class="folder-delete"
+                title=${blocked || "Delete"}
+                ?disabled=${Boolean(blocked) || this.deletingId === b._id}
+                @click=${() => this._deleteFolder(b)}
+              >
+                <i class="ti ti-trash" aria-hidden="true"></i>
+              </button>
+            `
+          : ""}
+      </div>
     `;
   }
 
@@ -235,8 +295,24 @@ export class FoundrBusiness extends LitElement {
         <foundr-profile-menu></foundr-profile-menu>
       </div>
       <div class="page">
-        <h1>Your startups</h1>
-        <p class="sub">Every side hustle you track on Foundr — each with its own fully separate dashboard.</p>
+        <div class="page-head">
+          <div>
+            <h1>Your startups</h1>
+            <p class="sub">Every side hustle you track on Foundr — each with its own fully separate dashboard.</p>
+          </div>
+          ${!this.loading && this.businesses.length > 0
+            ? html`
+                <button
+                  class="edit-toggle ${this.editMode ? "active" : ""}"
+                  @click=${() => { this.editMode = !this.editMode; }}
+                  title=${this.editMode ? "Done" : "Manage startups"}
+                  aria-label=${this.editMode ? "Done managing startups" : "Manage startups"}
+                >
+                  <i class="ti ${this.editMode ? "ti-check" : "ti-pencil"}" aria-hidden="true"></i>
+                </button>
+              `
+            : ""}
+        </div>
 
         ${this.error ? html`<div class="error-box">${this.error}</div>` : ""}
 
@@ -255,7 +331,7 @@ export class FoundrBusiness extends LitElement {
                       `}
                 </div>
                 <div class="tour-section">
-                  <button class="add-folder tour-card" @click=${() => { this.tourOpen = true; }}>
+                  <button class="add-folder tour-card" @click=${() => startTour()}>
                     <i class="ti ti-compass" aria-hidden="true"></i>
                     <span>Start your virtual tour</span>
                   </button>
@@ -267,14 +343,7 @@ export class FoundrBusiness extends LitElement {
             : ""}
         </div>
       </div>
-
-      <foundr-coming-soon-modal
-        ?open=${this.tourOpen}
-        heading="Virtual tour"
-        body="The guided walkthrough is still in the works — for now, explore Foundr at your own pace. We'll let you know the moment it's ready."
-        cta="Got it"
-        @close=${() => { this.tourOpen = false; }}
-      ></foundr-coming-soon-modal>
+      <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }
 }

@@ -11,11 +11,13 @@ import { loadSettings, saveTheme, saveProfileFields } from "../../shared/lib/set
 import { CURRENCIES, formatMoney, setCurrency, type CurrencyCode } from "../../shared/lib/format";
 import { THEME_OPTIONS, type ThemeCode } from "../../shared/lib/theme";
 import type { UserSettings, Business } from "../../shared/lib/types";
-import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency } from "../../shared/lib/business";
+import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency, deleteBusiness, deleteBlockedReason } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
+import { startTour } from "../../shared/lib/tour";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-coming-soon-modal";
+import "../../shared/components/foundr-tour-overlay";
 
 type Gender = UserSettings["gender"];
 type Section = "general" | "profile" | "security" | "startups";
@@ -90,7 +92,6 @@ export class FoundrSettings extends LitElement {
   @state() private newStartupName = "";
   @state() private startupSaving = false;
   @state() private startupError = "";
-  @state() private tourOpen = false;
   @state() private renamingId = "";
   @state() private renameValue = "";
 
@@ -172,6 +173,23 @@ export class FoundrSettings extends LitElement {
       this._cancelRename();
     } catch (err) {
       this.startupError = err instanceof Error ? err.message : "Couldn't rename that startup.";
+    } finally {
+      this.startupSaving = false;
+    }
+  }
+
+  /** Empty businesses only — the backend refuses if it still has tracked entries. */
+  private async _deleteStartup(b: Business): Promise<void> {
+    if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
+    if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
+
+    this.startupSaving = true;
+    this.startupError = "";
+    try {
+      await deleteBusiness(b._id);
+      this.businesses = this.businesses.filter((x) => x._id !== b._id);
+    } catch (err) {
+      this.startupError = err instanceof Error ? err.message : "Couldn't delete that startup.";
     } finally {
       this.startupSaving = false;
     }
@@ -497,20 +515,33 @@ export class FoundrSettings extends LitElement {
 
     .startup-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
     .startup-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 10px 14px; background: var(--surface-alt, #F2EFE8); border-radius: 12px; font-size: 14px;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; background: var(--surface-alt, #F2EFE8); border: 1px solid transparent;
+      border-radius: 14px; font-size: 14px; transition: border-color 0.15s ease;
     }
-    .startup-row.active { border: 1px solid var(--forest, #2D4A3E); }
+    .startup-row.active { border-color: var(--forest, #2D4A3E); }
+    .startup-icon {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E);
+      display: grid; place-items: center; font-size: 16px;
+    }
+    .startup-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .startup-row .badge {
       display: flex; align-items: center; gap: 4px;
       font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
       background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); padding: 3px 8px; border-radius: 999px;
+      flex-shrink: 0;
     }
-    .startup-row .switch { padding: 6px 14px; font-size: 12.5px; }
-    .startup-row-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-switch {
+      background: transparent; color: var(--forest, #2D4A3E); border: 1px solid var(--line, #E2DFD7);
+      padding: 6px 14px; border-radius: var(--radius-pill, 999px); font-size: 12.5px; font-weight: 500;
+      flex-shrink: 0; transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-switch:hover { background: var(--sage-soft, #DDE7E0); border-color: var(--forest, #2D4A3E); }
+    .startup-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .startup-row.renaming { gap: 10px; }
     .rename-input {
-      flex: 1; box-sizing: border-box; padding: 9px 12px; font-size: 14px; font-family: inherit;
+      flex: 1; min-width: 0; box-sizing: border-box; padding: 9px 12px; font-size: 14px; font-family: inherit;
       background: var(--input-bg, #fff); border: 1px solid var(--line, #E2DFD7);
       border-radius: 10px; color: var(--ink, #1C1C1C);
     }
@@ -733,6 +764,7 @@ export class FoundrSettings extends LitElement {
             this.renamingId === b._id
               ? html`
                   <div class="startup-row renaming">
+                    <span class="startup-icon"><i class="ti ti-building-store" aria-hidden="true"></i></span>
                     <input
                       class="rename-input"
                       type="text"
@@ -752,14 +784,23 @@ export class FoundrSettings extends LitElement {
                 `
               : html`
                   <div class="startup-row ${b._id === this.activeBusinessId ? "active" : ""}">
-                    <span><i class="ti ti-building-store" aria-hidden="true"></i> ${b.name}</span>
+                    <span class="startup-icon"><i class="ti ti-building-store" aria-hidden="true"></i></span>
+                    <span class="startup-name">${b.name}</span>
                     <div class="startup-row-actions">
-                      <button class="icon-btn" title="Rename" @click=${() => this._startRename(b)}>
+                      <button class="icon-btn" title="Rename" @click=${() => this._startRename(b)} ?disabled=${this.startupSaving}>
                         <i class="ti ti-pencil" aria-hidden="true"></i>
+                      </button>
+                      <button
+                        class="icon-btn danger"
+                        title=${deleteBlockedReason(this.businesses, b._id, this.activeBusinessId) || "Delete"}
+                        @click=${() => this._deleteStartup(b)}
+                        ?disabled=${Boolean(deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) || this.startupSaving}
+                      >
+                        <i class="ti ti-trash" aria-hidden="true"></i>
                       </button>
                       ${b._id === this.activeBusinessId
                         ? html`<span class="badge"><i class="ti ti-check" aria-hidden="true"></i> Active</span>`
-                        : html`<button class="btn-outline-danger switch" @click=${() => this._switchBusiness(b._id)}>Switch</button>`}
+                        : html`<button class="btn-switch" @click=${() => this._switchBusiness(b._id)}>Switch</button>`}
                     </div>
                   </div>
                 `
@@ -785,7 +826,7 @@ export class FoundrSettings extends LitElement {
             <div class="label">Virtual tour</div>
             <div class="desc">A guided walkthrough of what each part of Foundr does.</div>
           </div>
-          <button class="btn-save-form" @click=${() => { this.tourOpen = true; }}>Launch tour</button>
+          <button class="btn-save-form" @click=${() => startTour()}>Launch tour</button>
         </div>
       </div>
     `;
@@ -826,14 +867,7 @@ export class FoundrSettings extends LitElement {
         ?open=${this.comingSoonOpen}
         @close=${() => { this.comingSoonOpen = false; }}
       ></foundr-coming-soon-modal>
-
-      <foundr-coming-soon-modal
-        ?open=${this.tourOpen}
-        heading="Virtual tour"
-        body="The guided walkthrough is still in the works — for now, explore Foundr at your own pace. We'll let you know the moment it's ready."
-        cta="Got it"
-        @close=${() => { this.tourOpen = false; }}
-      ></foundr-coming-soon-modal>
+      <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }
 }

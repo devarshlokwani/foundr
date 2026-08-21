@@ -13,6 +13,7 @@ import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
+import "../../shared/components/foundr-tour-overlay";
 
 /**
  * <foundr-dashboard>
@@ -341,6 +342,7 @@ export class FoundrDashboard extends LitElement {
         @close=${this._closeModal}
         @entry-added=${this._onEntryAdded}
       ></foundr-add-entry>
+      <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }
 }

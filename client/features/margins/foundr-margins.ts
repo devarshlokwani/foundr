@@ -10,6 +10,7 @@ import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import { downloadCsv } from "../../shared/lib/csv";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
+import "../../shared/components/foundr-tour-overlay";
 
 type Section = "margins" | "balance-sheet";
 
@@ -571,6 +572,7 @@ export class FoundrMargins extends LitElement {
             : ""}
         </div>
       </div>
+      <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }
 }
