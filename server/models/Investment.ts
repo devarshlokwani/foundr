@@ -8,6 +8,9 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * Kept separate from income (in Transaction) on purpose: income is the
  * business earning money; investment is the founder funding it. ROI is
  * computed by comparing what's been returned against total investment.
+ *
+ * `deletedAt` makes deletion recoverable — see Expense.ts for the full
+ * reasoning, identical here.
  */
 const investmentSchema = new Schema(
   {
@@ -17,6 +20,7 @@ const investmentSchema = new Schema(
     source: { type: String, trim: true, default: "Personal savings" },
     note: { type: String, trim: true, default: "" },
     date: { type: Date, required: true, default: Date.now },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

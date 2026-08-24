@@ -13,7 +13,7 @@ export type Granularity = "day" | "biweekly" | "month";
 
 export const GRANULARITY_OPTIONS: { code: Granularity; label: string }[] = [
   { code: "day", label: "Daily" },
-  { code: "biweekly", label: "Every 2 weeks" },
+  { code: "biweekly", label: "Fortnight" },
   { code: "month", label: "Monthly" },
 ];
 

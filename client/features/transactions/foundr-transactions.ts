@@ -6,12 +6,15 @@ import type { UnifiedEntry, EntriesPage } from "../../shared/lib/types";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
+import { restoreEntry, permanentlyDeleteEntry } from "../../shared/lib/trash";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-tour-overlay";
+import "../../shared/components/foundr-recurring-list";
 
 type Kind = UnifiedEntry["kind"];
+type Section = "active" | "recurring" | "deleted";
 
 const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: "expense", label: "Expense" },
@@ -22,14 +25,15 @@ const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: "repayment", label: "Repayment" },
 ];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 /**
  * <foundr-transactions>
- * A full-page, unified, searchable/filterable/paginated list of every
+ * A full-page, unified, searchable/filterable/paginable table of every
  * entry — expenses, revenue, investments, draws, and debt — newest first.
- * Supports inline editing (amount + note) and deleting, routing each
- * change to the correct backend collection based on the entry's `source`.
+ * Supports inline editing (amount + note), single-row and bulk delete,
+ * routing each change to the correct backend collection based on the
+ * entry's `source`.
  *
  * Search and filters are server-side (see /api/entries and
  * server/lib/entries.ts) — this scales to however many entries a business
@@ -48,6 +52,7 @@ export class FoundrTransactions extends LitElement {
   @state() private busyId: string | null = null;
   @state() private businessId = "";
   @state() private businessLabel = "";
+  @state() private section: Section = "active";
 
   // Search — debounced, resets to page 1 on change.
   @state() private search = "";
@@ -66,7 +71,23 @@ export class FoundrTransactions extends LitElement {
 
   // Pagination
   @state() private page = 1;
+  @state() private pageSize = 50;
   @state() private total = 0;
+
+  // "Undo" toast — deleting is soft now, so there's no confirm() dialog;
+  // instead a brief window to reverse it right after.
+  @state() private undoEntry: UnifiedEntry | null = null;
+  private _undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Bulk selection — ids from the current page only (selection doesn't
+  // persist across a reload, since the set of rows it refers to changes).
+  @state() private selectedIds: Set<string> = new Set();
+  @state() private bulkBusy = false;
+
+  // Permanent-delete confirmation — "bulk" means the current selection,
+  // a UnifiedEntry means just that one row.
+  @state() private permanentDeleteTarget: UnifiedEntry | "bulk" | null = null;
+  @state() private deleteConfirmText = "";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -106,17 +127,20 @@ export class FoundrTransactions extends LitElement {
       this.loading = false;
       return;
     }
+    // Whatever was selected refers to rows that are about to be replaced.
+    this.selectedIds = new Set();
     try {
       const params = new URLSearchParams();
       params.set("businessId", this.businessId);
       params.set("page", String(this.page));
-      params.set("pageSize", String(PAGE_SIZE));
+      params.set("pageSize", String(this.pageSize));
       if (this.search) params.set("search", this.search);
       if (this.selectedKinds.length > 0) params.set("kinds", this.selectedKinds.join(","));
       if (this.dateFrom) params.set("dateFrom", this.dateFrom);
       if (this.dateTo) params.set("dateTo", this.dateTo);
 
-      const res = await apiGet<EntriesPage>(`/entries?${params.toString()}`);
+      const endpoint = this.section === "deleted" ? "/trash" : "/entries";
+      const res = await apiGet<EntriesPage>(`${endpoint}?${params.toString()}`);
       this.entries = res.items;
       this.total = res.total;
       this.error = "";
@@ -124,6 +148,31 @@ export class FoundrTransactions extends LitElement {
       this.error = err instanceof Error ? err.message : "Couldn't load your entries.";
     } finally {
       this.loading = false;
+    }
+  }
+
+  private async _refresh(): Promise<void> {
+    this.loading = true;
+    await this._load();
+  }
+
+  // ---- Section tabs ----
+
+  private get _sectionIndex(): number {
+    return this.section === "active" ? 0 : this.section === "recurring" ? 1 : 2;
+  }
+
+  private async _setSection(section: Section): Promise<void> {
+    if (section === this.section) return;
+    this.section = section;
+    this.selectedIds = new Set();
+    // Active and Deleted are two views over different (differently-sized)
+    // result sets, so start each fresh at page 1 rather than carrying over
+    // wherever pagination happened to be on the other one.
+    if (section === "active" || section === "deleted") {
+      this.page = 1;
+      this.loading = true;
+      await this._load();
     }
   }
 
@@ -190,13 +239,27 @@ export class FoundrTransactions extends LitElement {
   // ---- Pagination ----
 
   private get totalPages(): number {
-    return Math.max(1, Math.ceil(this.total / PAGE_SIZE));
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
+
+  private get viewingRangeText(): string {
+    if (this.total === 0) return "Viewing 0 results";
+    const start = (this.page - 1) * this.pageSize + 1;
+    const end = Math.min(this.page * this.pageSize, this.total);
+    return `Viewing ${start}–${end} of ${this.total} result${this.total === 1 ? "" : "s"}`;
   }
 
   private async _goToPage(p: number): Promise<void> {
     const clamped = Math.max(1, Math.min(this.totalPages, p));
     if (clamped === this.page) return;
     this.page = clamped;
+    this.loading = true;
+    await this._load();
+  }
+
+  private async _onPageSizeChange(e: Event): Promise<void> {
+    this.pageSize = Number((e.target as HTMLSelectElement).value);
+    this.page = 1;
     this.loading = true;
     await this._load();
   }
@@ -267,7 +330,8 @@ export class FoundrTransactions extends LitElement {
   }
 
   private async _delete(e: UnifiedEntry): Promise<void> {
-    if (!confirm(`Delete this ${e.kind} of ${formatMoney(e.amount)}?`)) return;
+    // Soft-delete, so no confirm() dialog — the "Undo" toast below is the
+    // safety net instead of a modal the founder has to click through.
     this.busyId = e.id;
     try {
       await apiDelete(this._path(e));
@@ -275,11 +339,160 @@ export class FoundrTransactions extends LitElement {
       // the view on a now-empty page.
       if (this.entries.length === 1 && this.page > 1) this.page -= 1;
       await this._load();
+      this._showUndo(e);
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't delete.";
     } finally {
       this.busyId = null;
     }
+  }
+
+  private _showUndo(e: UnifiedEntry): void {
+    if (this._undoTimer) clearTimeout(this._undoTimer);
+    this.undoEntry = e;
+    this._undoTimer = setTimeout(() => { this.undoEntry = null; }, 6000);
+  }
+
+  private async _undoDelete(): Promise<void> {
+    const e = this.undoEntry;
+    if (!e) return;
+    if (this._undoTimer) clearTimeout(this._undoTimer);
+    this.undoEntry = null;
+    try {
+      await restoreEntry(e, this.businessId);
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't undo that delete.";
+    }
+  }
+
+  // ---- Deleted-tab row actions ----
+
+  private async _restore(e: UnifiedEntry): Promise<void> {
+    this.busyId = e.id;
+    try {
+      await restoreEntry(e, this.businessId);
+      if (this.entries.length === 1 && this.page > 1) this.page -= 1;
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't restore that entry.";
+    } finally {
+      this.busyId = null;
+    }
+  }
+
+  // Permanent delete skips confirm() — a single "OK" click is too easy to
+  // hit by accident for something that's gone for good, unlike the soft
+  // deletes elsewhere on this page. Instead it opens a modal that only
+  // enables its confirm button once the founder types DELETE.
+  private async _doPermanentDelete(e: UnifiedEntry): Promise<void> {
+    this.busyId = e.id;
+    try {
+      await permanentlyDeleteEntry(e, this.businessId);
+      if (this.entries.length === 1 && this.page > 1) this.page -= 1;
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't delete that entry.";
+    } finally {
+      this.busyId = null;
+    }
+  }
+
+  // ---- Bulk selection ----
+
+  private get allVisibleSelected(): boolean {
+    return this.entries.length > 0 && this.entries.every((e) => this.selectedIds.has(e.id));
+  }
+
+  private _toggleSelect(id: string): void {
+    const next = new Set(this.selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedIds = next;
+  }
+
+  private _toggleSelectAll(): void {
+    this.selectedIds = this.allVisibleSelected ? new Set() : new Set(this.entries.map((e) => e.id));
+  }
+
+  private _clearSelection(): void {
+    this.selectedIds = new Set();
+  }
+
+  private get _selectedEntries(): UnifiedEntry[] {
+    return this.entries.filter((e) => this.selectedIds.has(e.id));
+  }
+
+  private async _bulkDelete(): Promise<void> {
+    const targets = this._selectedEntries;
+    if (targets.length === 0) return;
+    if (!confirm(`Delete ${targets.length} selected ${targets.length === 1 ? "entry" : "entries"}? You can restore them from Deleted.`)) return;
+    this.bulkBusy = true;
+    try {
+      await Promise.all(targets.map((e) => apiDelete(this._path(e))));
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't delete some of those entries.";
+    } finally {
+      this.bulkBusy = false;
+    }
+  }
+
+  private async _bulkRestore(): Promise<void> {
+    const targets = this._selectedEntries;
+    if (targets.length === 0) return;
+    this.bulkBusy = true;
+    try {
+      await Promise.all(targets.map((e) => restoreEntry(e, this.businessId)));
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't restore some of those entries.";
+    } finally {
+      this.bulkBusy = false;
+    }
+  }
+
+  private async _doBulkPermanentDelete(): Promise<void> {
+    const targets = this._selectedEntries;
+    if (targets.length === 0) return;
+    this.bulkBusy = true;
+    try {
+      await Promise.all(targets.map((e) => permanentlyDeleteEntry(e, this.businessId)));
+      await this._load();
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Couldn't delete some of those entries.";
+    } finally {
+      this.bulkBusy = false;
+    }
+  }
+
+  // ---- Permanent-delete confirmation (type DELETE to confirm) ----
+
+  private _openPermanentDeleteConfirm(target: UnifiedEntry | "bulk"): void {
+    this.permanentDeleteTarget = target;
+    this.deleteConfirmText = "";
+  }
+
+  private _closePermanentDeleteConfirm(): void {
+    this.permanentDeleteTarget = null;
+    this.deleteConfirmText = "";
+  }
+
+  private get _permanentDeleteCount(): number {
+    if (this.permanentDeleteTarget === "bulk") return this.selectedIds.size;
+    return this.permanentDeleteTarget ? 1 : 0;
+  }
+
+  private get _permanentDeleteConfirmed(): boolean {
+    return this.deleteConfirmText.trim().toUpperCase() === "DELETE";
+  }
+
+  private async _confirmPermanentDelete(): Promise<void> {
+    if (!this._permanentDeleteConfirmed) return;
+    const target = this.permanentDeleteTarget;
+    this._closePermanentDeleteConfirm();
+    if (target === "bulk") await this._doBulkPermanentDelete();
+    else if (target) await this._doPermanentDelete(target);
   }
 
   private _money(n: number): string {
@@ -309,14 +522,57 @@ export class FoundrTransactions extends LitElement {
     .ti-x:before { content: "\\eb55"; }
     .ti-chevron-left:before { content: "\\ea60"; }
     .ti-chevron-right:before { content: "\\ea61"; }
-    button, input { font-family: inherit; }
+    .ti-arrow-back-up:before { content: "\\eb77"; }
+    .ti-trash-x:before { content: "\\ef88"; }
+    .ti-refresh:before { content: "\\eb13"; }
+    .ti-check:before { content: "\\ea5e"; }
+    .ti-alert-triangle:before { content: "\\ea06"; }
+    button, input, select { font-family: inherit; }
     button { cursor: pointer; border: none; }
 
-    .page { max-width: 860px; margin: 0 auto; padding: 32px 28px; }
+    .page { max-width: 1120px; margin: 0 auto; padding: 32px 28px; }
     h1 { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0 0 24px; }
 
-    .toolbar { display: flex; gap: 10px; margin-bottom: 20px; }
+    .section-tabs {
+      position: relative; display: flex; background: var(--surface-alt, #F2EFE8);
+      padding: 4px; border-radius: var(--radius-pill, 999px); width: fit-content; margin-bottom: 20px;
+    }
+    .section-indicator {
+      position: absolute; top: 4px; left: 4px; bottom: 4px; width: var(--tab-w, 130px);
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-pill, 999px);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    .section-tab {
+      position: relative; z-index: 1; width: var(--tab-w, 130px); padding: 8px 0; text-align: center;
+      border-radius: var(--radius-pill, 999px); background: transparent; border: none;
+      font-size: 13.5px; font-weight: 500; color: var(--ink-soft, #6B6B66); transition: color 0.25s ease;
+    }
+    .section-tab.active { color: var(--ink, #1C1C1C); }
+
+    .card { background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px); padding: 22px; border: 0.5px solid var(--line, #E2DFD7); }
+
+    /* Table card — search/filter, bulk bar, table, footer, all one unit */
+    .table-card {
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
+      border: 0.5px solid var(--line, #E2DFD7); overflow: hidden;
+    }
+    .table-head-row {
+      display: flex; align-items: center; gap: 10px; padding: 20px 22px 0;
+    }
+    .table-title { font-size: 16px; font-weight: 600; }
+    .refresh-btn {
+      width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid var(--line, #E2DFD7);
+      color: var(--ink-soft, #6B6B66); display: grid; place-items: center; font-size: 14px;
+      transition: background 0.15s ease, transform 0.4s ease;
+    }
+    .refresh-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); }
+    .refresh-btn.spinning i { animation: spin 0.6s linear; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    .toolbar { display: flex; gap: 10px; padding: 16px 22px; }
     .search-wrap { position: relative; flex: 1; }
     .search-wrap .ti-search {
       position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
@@ -380,72 +636,180 @@ export class FoundrTransactions extends LitElement {
     }
     .btn-clear:hover { background: rgba(45,74,62,0.05); }
 
-    .list { display: flex; flex-direction: column; gap: 10px; }
-    .row {
-      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
-      border-left: 3px solid var(--line, #E2DFD7);
-      border-radius: 16px; padding: 16px 18px; display: flex; align-items: center; gap: 14px;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    /* Bulk-selection bar — appears above the table only once something's selected */
+    .bulk-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin: 0 22px 14px; padding: 10px 14px; background: var(--sage-soft, #DDE7E0);
+      border-radius: 12px; font-size: 13.5px;
     }
-    .row.expense, .row.draw { border-left-color: var(--danger, #D9534F); }
-    .row.revenue { border-left-color: var(--forest, #2D4A3E); }
-    .row.investment, .row.debt, .row.repayment { border-left-color: var(--accent-purple, #5B4B8A); }
-    .row:hover { box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
+    .bulk-bar .count { font-weight: 600; color: var(--forest, #2D4A3E); }
+    .bulk-actions { display: flex; align-items: center; gap: 8px; }
+    .bulk-btn {
+      display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 9px;
+      border: 1px solid var(--line, #E2DFD7); background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C);
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+    }
+    .bulk-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); }
+    .bulk-btn.danger { color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); }
+    .bulk-btn.danger:hover:not(:disabled) { background: var(--danger-bg, #FBEAE9); }
+    .bulk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .bulk-clear {
+      padding: 7px 12px; border-radius: 9px; border: none; background: transparent;
+      color: var(--ink-soft, #6B6B66); font-size: 13px;
+    }
+    .bulk-clear:hover:not(:disabled) { color: var(--ink, #1C1C1C); }
 
-    .badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
-    .badge.expense, .badge.draw { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    thead th {
+      text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      color: var(--ink-soft, #6B6B66); padding: 10px 14px; border-bottom: 1px solid var(--line, #E2DFD7);
+      white-space: nowrap;
+    }
+    th.col-check, td.col-check { width: 40px; padding-left: 22px; }
+    th.col-amount, td.col-amount { text-align: right; padding-right: 22px; }
+    th.col-actions, td.col-actions { width: 90px; padding-right: 22px; }
+    tbody td { padding: 13px 14px; font-size: 13.5px; border-bottom: 0.5px solid var(--line, #E2DFD7); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background 0.12s ease; }
+    tbody tr:hover { background: var(--surface-alt, #F2EFE8); }
+    tbody tr.selected { background: var(--sage-soft, #DDE7E0); }
+    .row-check { display: flex; cursor: pointer; }
+    .row-check input, .select-all-check { accent-color: var(--forest, #2D4A3E); width: 16px; height: 16px; cursor: pointer; }
+
+    .badge { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 9px; border-radius: 999px; white-space: nowrap; }
+    .badge.expense, .badge.draw, .badge.repayment { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
     .badge.revenue { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); }
-    .badge.investment, .badge.debt, .badge.repayment { background: var(--accent-purple-bg, #EAE6F3); color: var(--accent-purple, #5B4B8A); }
-    .info { flex: 1; min-width: 0; }
-    .info .label { font-size: 15px; font-weight: 500; }
-    .info .meta { font-size: 13px; color: var(--ink-soft, #6B6B66); margin-top: 2px; }
-    .amount { font-size: 16px; font-weight: 600; white-space: nowrap; }
-    .amount.expense, .amount.draw { color: var(--danger, #A8302B); }
-    .amount.revenue { color: var(--forest, #2D4A3E); }
-    .row-actions { display: flex; gap: 6px; }
+    .badge.investment, .badge.debt { background: var(--accent-purple-bg, #EAE6F3); color: var(--accent-purple, #5B4B8A); }
+
+    .col-label { font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-note { color: var(--ink-soft, #6B6B66); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-note .muted { color: var(--line, #E2DFD7); }
+    .col-date { color: var(--ink-soft, #6B6B66); white-space: nowrap; }
+    .col-amount { font-weight: 600; white-space: nowrap; }
+    .col-amount.outflow { color: var(--danger, #A8302B); }
+    .col-amount.inflow { color: var(--forest, #2D4A3E); }
+
+    .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
     .icon-btn {
-      background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 10px;
-      width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink-soft, #6B6B66);
-      font-size: 16px; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
+      width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-soft, #6B6B66);
+      font-size: 14px; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
     }
     .icon-btn:hover { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); }
     .icon-btn:active { transform: scale(0.94); }
     .icon-btn.danger:hover { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); }
+    .icon-btn.save:hover { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); }
     .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .edit-row { display: flex; flex-direction: column; gap: 10px; flex: 1; }
-    .edit-fields { display: flex; gap: 10px; }
-    .edit-fields input { flex: 1; padding: 9px 12px; font-size: 14px; font-family: inherit; background: var(--input-bg, #fff); color: var(--ink, #1C1C1C); border: 1px solid var(--line, #E2DFD7); border-radius: 10px; }
-    .edit-fields input:focus { outline: none; border-color: var(--forest, #2D4A3E); }
-    .edit-actions { display: flex; gap: 8px; }
-    .btn-save {
-      background: var(--forest, #2D4A3E); color: #fff; padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 500;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    .cell-input {
+      width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px; font-family: inherit;
+      background: var(--input-bg, #fff); color: var(--ink, #1C1C1C); border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
     }
-    .btn-save:hover { background: var(--forest-deep, #1F3329); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
-    .btn-save:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
-    .btn-cancel { background: transparent; border: 1px solid var(--line, #E2DFD7); color: var(--ink, #1C1C1C); padding: 8px 16px; border-radius: 9px; font-size: 13px; }
+    .cell-input:focus { outline: none; border-color: var(--forest, #2D4A3E); }
+    .amount-input { text-align: right; }
 
-    .pagination { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 24px; }
+    /* Footer */
+    .table-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding: 14px 22px; border-top: 0.5px solid var(--line, #E2DFD7);
+    }
+    .viewing-text { font-size: 13px; color: var(--ink-soft, #6B6B66); }
+    .footer-right { display: flex; align-items: center; gap: 16px; }
+    .page-size-select {
+      font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line, #E2DFD7);
+      background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C); cursor: pointer;
+    }
+    .pagination { display: flex; align-items: center; gap: 6px; }
     .page-btn {
-      min-width: 34px; height: 34px; padding: 0 8px; border-radius: 9px; border: 1px solid var(--line, #E2DFD7);
-      background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C); font-size: 13.5px; font-weight: 500;
+      min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line, #E2DFD7);
+      background: var(--surface, #FAFAF7); color: var(--ink, #1C1C1C); font-size: 13px; font-weight: 500;
       transition: background 0.15s ease;
     }
     .page-btn:hover:not(:disabled):not(.active) { background: rgba(45,74,62,0.06); }
     .page-btn.active { background: var(--forest, #2D4A3E); color: #fff; border-color: var(--forest, #2D4A3E); }
     .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .page-ellipsis { color: var(--ink-soft, #6B6B66); padding: 0 4px; }
+    .page-ellipsis { color: var(--ink-soft, #6B6B66); padding: 0 2px; font-size: 13px; }
 
-    .empty { text-align: center; padding: 70px 20px; color: var(--ink-soft, #6B6B66); }
+    .undo-toast {
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 16px;
+      background: var(--ink, #1C1C1C); color: #fff; font-size: 14px;
+      padding: 12px 14px 12px 18px; border-radius: 12px; box-shadow: 0 12px 32px -8px rgba(0,0,0,0.35);
+      z-index: 150;
+    }
+    .undo-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.35); color: #fff;
+      padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      transition: background 0.15s ease;
+    }
+    .undo-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* Permanent-delete confirmation — deliberately more friction than the
+       plain confirm() used for soft deletes elsewhere on this page, since
+       this one is genuinely irreversible. */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: var(--overlay, rgba(28,28,28,0.5));
+      display: flex; align-items: center; justify-content: center; z-index: 250; padding: 20px;
+    }
+    .confirm-modal {
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
+      width: 100%; max-width: 400px; padding: 28px; box-shadow: 0 24px 60px -20px rgba(31,51,41,0.4);
+      font-family: var(--font-body, "Inter", sans-serif); color: var(--ink, #1C1C1C); text-align: center;
+    }
+    .confirm-icon {
+      width: 52px; height: 52px; border-radius: 14px; background: var(--danger-bg, #FBEAE9);
+      color: var(--danger, #A8302B); display: grid; place-items: center; font-size: 24px; margin: 0 auto 16px;
+    }
+    .confirm-modal h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+    .confirm-modal p { font-size: 14px; color: var(--ink-soft, #6B6B66); line-height: 1.5; margin: 0 0 20px; }
+    .confirm-label { display: block; font-size: 13px; margin-bottom: 8px; text-align: left; }
+    .confirm-label strong { letter-spacing: 0.04em; }
+    .confirm-input {
+      width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1.5px solid var(--line, #E2DFD7); border-radius: var(--radius-input, 14px);
+      color: var(--ink, #1C1C1C); text-align: center; letter-spacing: 0.08em; font-weight: 600;
+    }
+    .confirm-input:focus { outline: none; border-color: var(--danger, #A8302B); box-shadow: 0 0 0 3px var(--danger-bg, #FBEAE9); }
+    .confirm-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-cancel {
+      flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: 1px solid var(--line, #E2DFD7);
+      background: transparent; color: var(--ink, #1C1C1C); font-size: 14.5px;
+    }
+    .btn-cancel:hover { background: rgba(45,74,62,0.05); }
+    .btn-confirm-delete {
+      flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: none;
+      background: var(--danger, #A8302B); color: #fff; font-size: 14.5px; font-weight: 500;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-confirm-delete:hover:not(:disabled) { background: #8A281F; }
+    .btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .empty { text-align: center; padding: 60px 20px; color: var(--ink-soft, #6B6B66); }
     .empty a { color: var(--forest, #2D4A3E); }
     .error-box { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; }
-    .list-area { position: relative; min-height: 320px; }
+    .list-area { position: relative; min-height: 240px; }
     .loader-overlay {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: var(--bg, #ECEAE3); z-index: 5;
+      background: var(--surface, #FAFAF7); z-index: 5;
     }
   `;
+
+  private _sectionLabel(): string {
+    return this.section === "deleted" ? "Deleted entries" : "Active entries";
+  }
+
+  private _renderTableHead(): TemplateResult {
+    return html`
+      <div class="table-head-row">
+        <div class="table-title">${this._sectionLabel()} (${this.total})</div>
+        <button class="refresh-btn" @click=${this._refresh} title="Refresh" ?disabled=${this.loading}>
+          <i class="ti ti-refresh" aria-hidden="true"></i>
+        </button>
+      </div>
+    `;
+  }
 
   private _renderToolbar(): TemplateResult {
     return html`
@@ -517,45 +881,80 @@ export class FoundrTransactions extends LitElement {
     `;
   }
 
-  private _renderRow(e: UnifiedEntry): TemplateResult {
-    const isEditing = this.editingId === e.id;
-    const busy = this.busyId === e.id;
-
-    if (isEditing) {
-      return html`
-        <div class="row ${e.kind}">
-          <span class="badge ${e.kind}">${e.kind}</span>
-          <div class="edit-row">
-            <div class="edit-fields">
-              <input type="number" min="0" step="0.01" .value=${this.editAmount}
-                @input=${(ev: Event) => { this.editAmount = (ev.target as HTMLInputElement).value; }}
-                placeholder="Amount" />
-              <input type="text" .value=${this.editNote}
-                @input=${(ev: Event) => { this.editNote = (ev.target as HTMLInputElement).value; }}
-                placeholder="Note (optional)" />
-            </div>
-            <div class="edit-actions">
-              <button class="btn-save" @click=${() => this._saveEdit(e)} ?disabled=${busy}>${busy ? "Saving…" : "Save"}</button>
-              <button class="btn-cancel" @click=${this._cancelEdit} ?disabled=${busy}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
+  private _renderBulkBar(): TemplateResult {
+    const n = this.selectedIds.size;
+    if (n === 0) return html``;
     return html`
-      <div class="row ${e.kind}">
-        <span class="badge ${e.kind}">${e.kind}</span>
-        <div class="info">
-          <div class="label">${e.label}</div>
-          <div class="meta">${this._date(e.date)}${e.note ? ` · ${e.note}` : ""}</div>
-        </div>
-        <div class="amount ${e.kind}">${this._isOutflow(e.kind) ? "−" : "+"}${this._money(e.amount)}</div>
-        <div class="row-actions">
-          <button class="icon-btn" title="Edit" @click=${() => this._startEdit(e)} ?disabled=${busy}><i class="ti ti-pencil" aria-hidden="true"></i></button>
-          <button class="icon-btn danger" title="Delete" @click=${() => this._delete(e)} ?disabled=${busy}><i class="ti ti-trash" aria-hidden="true"></i></button>
+      <div class="bulk-bar">
+        <span class="count">${n} selected</span>
+        <div class="bulk-actions">
+          ${this.section === "deleted"
+            ? html`
+                <button class="bulk-btn" @click=${this._bulkRestore} ?disabled=${this.bulkBusy}>
+                  <i class="ti ti-arrow-back-up" aria-hidden="true"></i>Restore
+                </button>
+                <button class="bulk-btn danger" @click=${() => this._openPermanentDeleteConfirm("bulk")} ?disabled=${this.bulkBusy}>
+                  <i class="ti ti-trash-x" aria-hidden="true"></i>Delete forever
+                </button>
+              `
+            : html`
+                <button class="bulk-btn danger" @click=${this._bulkDelete} ?disabled=${this.bulkBusy}>
+                  <i class="ti ti-trash" aria-hidden="true"></i>Delete
+                </button>
+              `}
+          <button class="bulk-clear" @click=${this._clearSelection} ?disabled=${this.bulkBusy}>Clear</button>
         </div>
       </div>
+    `;
+  }
+
+  private _renderRow(e: UnifiedEntry): TemplateResult {
+    const isDeleted = this.section === "deleted";
+    const isEditing = !isDeleted && this.editingId === e.id;
+    const busy = this.busyId === e.id;
+    const outflow = this._isOutflow(e.kind);
+
+    return html`
+      <tr class="${this.selectedIds.has(e.id) ? "selected" : ""}">
+        <td class="col-check">
+          <label class="row-check">
+            <input type="checkbox" .checked=${this.selectedIds.has(e.id)} @change=${() => this._toggleSelect(e.id)} />
+          </label>
+        </td>
+        <td><span class="badge ${e.kind}">${e.kind}</span></td>
+        <td class="col-label">${e.label}</td>
+        <td class="col-note">
+          ${isEditing
+            ? html`<input class="cell-input" type="text" placeholder="Note" .value=${this.editNote}
+                @input=${(ev: Event) => { this.editNote = (ev.target as HTMLInputElement).value; }} />`
+            : e.note || html`<span class="muted">—</span>`}
+        </td>
+        <td class="col-date">${this._date(e.date)}</td>
+        <td class="col-amount ${outflow ? "outflow" : "inflow"}">
+          ${isEditing
+            ? html`<input class="cell-input amount-input" type="number" min="0" step="0.01" .value=${this.editAmount}
+                @input=${(ev: Event) => { this.editAmount = (ev.target as HTMLInputElement).value; }} />`
+            : html`${outflow ? "−" : "+"}${this._money(e.amount)}`}
+        </td>
+        <td class="col-actions">
+          <div class="row-actions">
+            ${isEditing
+              ? html`
+                  <button class="icon-btn save" title="Save" @click=${() => this._saveEdit(e)} ?disabled=${busy}><i class="ti ti-check" aria-hidden="true"></i></button>
+                  <button class="icon-btn" title="Cancel" @click=${this._cancelEdit} ?disabled=${busy}><i class="ti ti-x" aria-hidden="true"></i></button>
+                `
+              : isDeleted
+                ? html`
+                    <button class="icon-btn" title="Restore" @click=${() => this._restore(e)} ?disabled=${busy}><i class="ti ti-arrow-back-up" aria-hidden="true"></i></button>
+                    <button class="icon-btn danger" title="Delete forever" @click=${() => this._openPermanentDeleteConfirm(e)} ?disabled=${busy}><i class="ti ti-trash-x" aria-hidden="true"></i></button>
+                  `
+                : html`
+                    <button class="icon-btn" title="Edit" @click=${() => this._startEdit(e)} ?disabled=${busy}><i class="ti ti-pencil" aria-hidden="true"></i></button>
+                    <button class="icon-btn danger" title="Delete" @click=${() => this._delete(e)} ?disabled=${busy}><i class="ti ti-trash" aria-hidden="true"></i></button>
+                  `}
+          </div>
+        </td>
+      </tr>
     `;
   }
 
@@ -582,6 +981,89 @@ export class FoundrTransactions extends LitElement {
     return Boolean(this.search) || this.activeFilterCount > 0;
   }
 
+  private _renderEmptyMessage(): TemplateResult {
+    if (this.section === "deleted") {
+      return this.isFiltered
+        ? html`No deleted entries match your search or filters.`
+        : html`Trash is empty.`;
+    }
+    return this.isFiltered
+      ? html`No entries match your search or filters.`
+      : html`No entries yet. <a href="/dashboard">Add your first one</a> from the dashboard.`;
+  }
+
+  private _renderSectionTabs(): TemplateResult {
+    return html`
+      <div class="section-tabs" style="--tab-w: 130px">
+        <div class="section-indicator" style="transform: translateX(${this._sectionIndex * 130}px)"></div>
+        <button class="section-tab ${this.section === "active" ? "active" : ""}" @click=${() => this._setSection("active")}>Active</button>
+        <button class="section-tab ${this.section === "recurring" ? "active" : ""}" @click=${() => this._setSection("recurring")}>Recurring</button>
+        <button class="section-tab ${this.section === "deleted" ? "active" : ""}" @click=${() => this._setSection("deleted")}>Deleted</button>
+      </div>
+    `;
+  }
+
+  // Shared by both Active and Deleted — same header, toolbar, search,
+  // filters, table columns, and footer; only the data source, row
+  // actions, and empty-state copy differ by section, so the two feel
+  // like one consistent UI rather than a full table next to a
+  // stripped-down list.
+  private _renderEntriesList(): TemplateResult {
+    return html`
+      <div class="table-card">
+        ${this._renderTableHead()}
+        ${this._renderToolbar()}
+        ${!this.loading ? this._renderBulkBar() : ""}
+
+        <div class="list-area">
+          ${!this.loading
+            ? this.entries.length === 0
+              ? html`<div class="empty">${this._renderEmptyMessage()}</div>`
+              : html`
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th class="col-check">
+                            <input class="select-all-check" type="checkbox" .checked=${this.allVisibleSelected} @change=${this._toggleSelectAll} />
+                          </th>
+                          <th>Kind</th>
+                          <th>Category / Source</th>
+                          <th>Note</th>
+                          <th>Date</th>
+                          <th class="col-amount">Amount</th>
+                          <th class="col-actions"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${this.entries.map((e) => this._renderRow(e))}
+                      </tbody>
+                    </table>
+                  </div>
+                `
+            : ""}
+          ${this.loading
+            ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
+            : ""}
+        </div>
+
+        ${!this.loading && this.entries.length > 0
+          ? html`
+              <div class="table-footer">
+                <span class="viewing-text">${this.viewingRangeText}</span>
+                <div class="footer-right">
+                  <select class="page-size-select" .value=${String(this.pageSize)} @change=${this._onPageSizeChange}>
+                    ${PAGE_SIZE_OPTIONS.map((n) => html`<option value=${n} ?selected=${n === this.pageSize}>${n} / page</option>`)}
+                  </select>
+                  ${this._renderPagination()}
+                </div>
+              </div>
+            `
+          : ""}
+      </div>
+    `;
+  }
+
   render(): TemplateResult {
     return html`
       <foundr-topbar active="transactions" businessName=${this.businessLabel}></foundr-topbar>
@@ -590,29 +1072,56 @@ export class FoundrTransactions extends LitElement {
         <h1>All entries</h1>
         <p class="sub">Every expense, revenue, investment, draw, and debt entry you've tracked.</p>
 
-        ${this._renderToolbar()}
+        ${this._renderSectionTabs()}
 
         ${this.error ? html`<div class="error-box">${this.error}</div>` : ""}
 
-        <div class="list-area">
-          ${!this.loading
-            ? this.entries.length === 0
-              ? html`<div class="empty">
-                  ${this.isFiltered
-                    ? "No entries match your search or filters."
-                    : html`No entries yet. <a href="/dashboard">Add your first one</a> from the dashboard.`}
-                </div>`
-              : html`<div class="list">${this.entries.map((e) => this._renderRow(e))}</div>`
-            : ""}
-          ${this.loading
-            ? html`<div class="loader-overlay"><foundr-mini-loader></foundr-mini-loader></div>`
-            : ""}
-        </div>
-
-        ${!this.loading ? this._renderPagination() : ""}
+        ${this.section === "recurring"
+          ? html`<div class="card"><foundr-recurring-list businessId=${this.businessId}></foundr-recurring-list></div>`
+          : this._renderEntriesList()}
       </div>
       ${this._renderFilterDrawer()}
+      ${this._renderUndoToast()}
+      ${this._renderPermanentDeleteConfirm()}
       <foundr-tour-overlay></foundr-tour-overlay>
+    `;
+  }
+
+  private _renderUndoToast(): TemplateResult {
+    if (!this.undoEntry) return html``;
+    return html`
+      <div class="undo-toast">
+        <span>Deleted "${this.undoEntry.label}"</span>
+        <button class="undo-btn" @click=${this._undoDelete}>Undo</button>
+      </div>
+    `;
+  }
+
+  private _renderPermanentDeleteConfirm(): TemplateResult {
+    if (!this.permanentDeleteTarget) return html``;
+    const n = this._permanentDeleteCount;
+    const confirmed = this._permanentDeleteConfirmed;
+    return html`
+      <div class="confirm-overlay" @click=${(e: Event) => { if (e.target === e.currentTarget) this._closePermanentDeleteConfirm(); }}>
+        <div class="confirm-modal">
+          <div class="confirm-icon"><i class="ti ti-alert-triangle" aria-hidden="true"></i></div>
+          <h2>Delete forever?</h2>
+          <p>This will permanently delete ${n} ${n === 1 ? "entry" : "entries"}. Unlike the Deleted tab, this can't be undone.</p>
+          <label class="confirm-label" for="deleteConfirm">Type <strong>DELETE</strong> to confirm</label>
+          <input
+            id="deleteConfirm" class="confirm-input" type="text" autocomplete="off" placeholder="DELETE"
+            .value=${this.deleteConfirmText}
+            @input=${(e: Event) => { this.deleteConfirmText = (e.target as HTMLInputElement).value; }}
+            @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter" && confirmed) void this._confirmPermanentDelete(); }}
+          />
+          <div class="confirm-actions">
+            <button class="btn-cancel" @click=${this._closePermanentDeleteConfirm}>Cancel</button>
+            <button class="btn-confirm-delete" ?disabled=${!confirmed} @click=${this._confirmPermanentDelete}>
+              Delete forever
+            </button>
+          </div>
+        </div>
+      </div>
     `;
   }
 }

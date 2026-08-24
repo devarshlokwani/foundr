@@ -21,6 +21,9 @@ import drawsRouter from "./routes/draws.js";
 import debtsRouter from "./routes/debts.js";
 import businessesRouter from "./routes/businesses.js";
 import recurringRouter from "./routes/recurring.js";
+import trashRouter from "./routes/trash.js";
+import activityRouter from "./routes/activity.js";
+import importRouter from "./routes/import.js";
 
 /**
  * Foundr API server.
@@ -38,7 +41,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+// Default 100kb is too small for a bulk import request (up to 2000 rows,
+// see lib/import.ts) — every other route's payloads are tiny by comparison,
+// so raising the ceiling here doesn't add real risk, just headroom.
+app.use(express.json({ limit: "5mb" }));
 
 // Reads the Clerk session token on every request and attaches auth.
 app.use(clerkMiddleware());
@@ -61,6 +67,9 @@ app.use("/api/draws", drawsRouter);
 app.use("/api/debts", debtsRouter);
 app.use("/api/businesses", businessesRouter);
 app.use("/api/recurring", recurringRouter);
+app.use("/api/trash", trashRouter);
+app.use("/api/activity", activityRouter);
+app.use("/api/import", importRouter);
 
 // Catches anything a route threw or rejected with (now forwarded here by
 // express-async-errors) so one bad request returns a clean 500 instead of

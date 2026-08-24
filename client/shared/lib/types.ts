@@ -113,6 +113,29 @@ export interface EntriesPage {
   pageSize: number;
 }
 
+/** A UnifiedEntry currently in the trash, from GET /api/trash. */
+export interface TrashedEntry extends UnifiedEntry {
+  deletedAt: string;
+}
+
+/** One recorded mutation, from GET /api/activity. */
+export interface ActivityLogEntry {
+  _id: string;
+  action: "create" | "update" | "delete" | "restore";
+  entityType: "expense" | "investment" | "draw" | "debt" | "business" | "category" | "recurring";
+  entityId: string;
+  summary: string;
+  createdAt: string;
+}
+
+/** One page of GET /api/activity. */
+export interface ActivityPage {
+  items: ActivityLogEntry[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 /**
  * Per-user settings, from /api/settings. Currency and the business's
  * display name live on Business instead — see below — since those are

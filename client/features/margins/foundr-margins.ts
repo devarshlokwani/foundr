@@ -229,6 +229,14 @@ export class FoundrMargins extends LitElement {
     downloadCsv(`foundr-balance-sheet-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   }
 
+  // Zero new dependencies: the browser's own print dialog doubles as
+  // "Save as PDF" everywhere that matters, and the @media print rules
+  // below hide everything except whichever report is currently on
+  // screen — margins or balance sheet, whichever tab is open.
+  private _exportPdf(): void {
+    window.print();
+  }
+
   static styles = css`
     :host {
       display: block;
@@ -245,6 +253,7 @@ export class FoundrMargins extends LitElement {
       -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
     .ti-download:before { content: "\\ea96"; }
+    .ti-file-type-pdf:before { content: "\\fb10"; }
     .ti-report-money:before { content: "\\eecd"; }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
@@ -297,6 +306,10 @@ export class FoundrMargins extends LitElement {
     .export-btn:hover { background: var(--forest-deep, #1F3329); transform: translate(-5px, -5px); box-shadow: 5px 5px 0 var(--sage, #8AAF9A); }
     .export-btn:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .export-btn.outline {
+      background: transparent; color: var(--ink, #1C1C1C); border: 1px solid var(--line, #E2DFD7);
+    }
+    .export-btn.outline:hover { background: rgba(45,74,62,0.05); box-shadow: none; transform: none; }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
     .kpi-grid.three { grid-template-columns: repeat(3, 1fr); }
@@ -466,6 +479,20 @@ export class FoundrMargins extends LitElement {
     @media (max-width: 560px) {
       .kpi-grid { grid-template-columns: 1fr; }
     }
+
+    /* Export PDF (window.print()) — only the current report should print,
+       none of the app chrome around it. Whichever section is active is
+       already the only one in the DOM (see render()), so this just needs
+       to strip navigation/tabs/buttons and let the content fill the page. */
+    @media print {
+      foundr-topbar, .section-tabs, .head-actions, .loader-overlay, foundr-tour-overlay { display: none !important; }
+      :host { min-height: 0; background: #fff; }
+      .page { max-width: none; padding: 0; }
+      .kpi.dark { background: #fff !important; color: var(--ink, #1C1C1C) !important; border: 1px solid var(--line, #E2DFD7) !important; }
+      .kpi.dark .kpi-hint { color: var(--ink-soft, #6B6B66) !important; }
+      .statement { border-color: #000; box-shadow: none; }
+      .card, .ratios-card { box-shadow: none; border: 1px solid var(--line, #E2DFD7); break-inside: avoid; }
+    }
   `;
 
   // The header shows immediately — title and subtitle are always static,
@@ -493,6 +520,9 @@ export class FoundrMargins extends LitElement {
                   ? html`
                       <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
                         <i class="ti ti-download" aria-hidden="true"></i>Export CSV
+                      </button>
+                      <button class="export-btn outline" @click=${this._exportPdf}>
+                        <i class="ti ti-file-type-pdf" aria-hidden="true"></i>Export PDF
                       </button>
                     `
                   : ""}

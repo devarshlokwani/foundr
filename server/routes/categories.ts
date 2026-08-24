@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { CategoryModel } from "../models/Category.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
+import { logActivity } from "../lib/activityLog.js";
 
 /**
  * Categories API — each founder's personalised category lists, per
@@ -61,6 +62,10 @@ router.post("/", async (req: Request, res: Response) => {
 
   try {
     const created = await CategoryModel.create({ userId, businessId, kind, name: name.trim() });
+    void logActivity({
+      userId, businessId: businessId!, action: "create", entityType: "category", entityId: String(created._id),
+      summary: `Added ${created.kind} category — ${created.name}`,
+    });
     res.status(201).json(created);
   } catch (err) {
     // Duplicate (same user + business + kind + name) trips the unique index.
@@ -76,6 +81,11 @@ router.delete("/:id", async (req: Request, res: Response) => {
   const businessId = req.businessId;
   const deleted = await CategoryModel.findOneAndDelete({ _id: req.params.id, userId, businessId });
   if (!deleted) return res.status(404).json({ error: "Category not found." });
+
+  void logActivity({
+    userId, businessId: businessId!, action: "delete", entityType: "category", entityId: String(deleted._id),
+    summary: `Deleted ${deleted.kind} category — ${deleted.name}`,
+  });
   res.json({ ok: true });
 });
 

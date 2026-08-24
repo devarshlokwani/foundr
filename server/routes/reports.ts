@@ -33,10 +33,10 @@ router.get("/margins", async (req: Request, res: Response) => {
   const { period, dateFilter } = parseRangeQuery(req.query as Record<string, unknown>);
 
   const [entries, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId, businessId, ...dateFilter }).select("type amount category date"),
-    InvestmentModel.find({ userId, businessId, ...dateFilter }).select("amount date"),
-    DrawModel.find({ userId, businessId, ...dateFilter }).select("amount"),
-    DebtModel.find({ userId, businessId, ...dateFilter }).select("type amount"),
+    ExpenseModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("type amount category date"),
+    InvestmentModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("amount date"),
+    DrawModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("amount"),
+    DebtModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("type amount"),
   ]);
 
   const totalInvested = investments.reduce((sum, i) => sum + i.amount, 0);
@@ -62,10 +62,10 @@ router.get("/balance-sheet", async (req: Request, res: Response) => {
   const businessId = req.businessId;
 
   const [expenses, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId, businessId }).select("type amount isCapital"),
-    InvestmentModel.find({ userId, businessId }).select("amount"),
-    DrawModel.find({ userId, businessId }).select("amount"),
-    DebtModel.find({ userId, businessId }).select("type amount"),
+    ExpenseModel.find({ userId, businessId, deletedAt: null }).select("type amount isCapital"),
+    InvestmentModel.find({ userId, businessId, deletedAt: null }).select("amount"),
+    DrawModel.find({ userId, businessId, deletedAt: null }).select("amount"),
+    DebtModel.find({ userId, businessId, deletedAt: null }).select("type amount"),
   ]);
 
   let totalIncome = 0;

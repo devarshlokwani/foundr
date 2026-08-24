@@ -8,7 +8,9 @@ import "./foundr-insights";
 import "../onboarding/foundr-onboarding";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
+import "../../shared/components/foundr-activity-feed";
 import type { FoundrInsights } from "./foundr-insights";
+import type { FoundrActivityFeed } from "../../shared/components/foundr-activity-feed";
 import { formatMoney } from "../../shared/lib/format";
 import { loadSettings } from "../../shared/lib/settings";
 import { resolveActiveBusiness } from "../../shared/lib/business";
@@ -37,6 +39,7 @@ export class FoundrDashboard extends LitElement {
   @state() private businessLabel = "";
   @state() private range: RangePreset = getStoredRangePreset();
     @query("foundr-insights") private insightsEl?: FoundrInsights;
+    @query("foundr-activity-feed") private activityEl?: FoundrActivityFeed;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -131,6 +134,7 @@ export class FoundrDashboard extends LitElement {
  private async _onEntryAdded(): Promise<void> {
     await this._loadMetrics();
     await this.insightsEl?.refresh();
+    await this.activityEl?.refresh();
   }
 
   // Has the founder entered anything yet?
@@ -345,6 +349,7 @@ export class FoundrDashboard extends LitElement {
         </div>
 
         <foundr-insights businessId=${this.businessId} range=${this.range}></foundr-insights>
+        <foundr-activity-feed businessId=${this.businessId} @changed=${this._onEntryAdded}></foundr-activity-feed>
       </div>
     `;
   }

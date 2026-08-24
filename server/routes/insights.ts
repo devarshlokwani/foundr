@@ -36,8 +36,8 @@ router.get("/", async (req: Request, res: Response) => {
   const granularity = parseGranularity(req.query.granularity);
 
   const [entries, investments] = await Promise.all([
-    ExpenseModel.find({ userId, businessId }).select("type amount category date").lean(),
-    InvestmentModel.find({ userId, businessId }).select("amount date").lean(),
+    ExpenseModel.find({ userId, businessId, deletedAt: null }).select("type amount category date").lean(),
+    InvestmentModel.find({ userId, businessId, deletedAt: null }).select("amount date").lean(),
   ]);
 
   const insights = computeInsights(

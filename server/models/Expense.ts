@@ -16,6 +16,11 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * counts as cash out, but on the balance sheet it becomes a Fixed Asset
  * instead of reducing retained earnings. Defaults false so it never
  * changes the meaning of existing entries.
+ *
+ * `deletedAt` makes deletion recoverable: a non-null value means "in the
+ * trash," not gone. Every read query across the app filters `deletedAt:
+ * null` so a soft-deleted entry disappears from lists/reports immediately
+ * without losing the underlying data.
  */
 const expenseSchema = new Schema(
   {
@@ -27,6 +32,7 @@ const expenseSchema = new Schema(
     note: { type: String, trim: true, default: "" },
     date: { type: Date, required: true, default: Date.now },
     isCapital: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

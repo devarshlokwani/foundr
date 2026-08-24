@@ -32,10 +32,10 @@ router.get("/", async (req: Request, res: Response) => {
   await materializeDueRules(userId!, businessId!);
 
   const [entries, investments, draws, debts] = await Promise.all([
-    ExpenseModel.find({ userId, businessId, ...dateFilter }).select("type amount date").lean(),
-    InvestmentModel.find({ userId, businessId, ...dateFilter }).select("amount").lean(),
-    DrawModel.find({ userId, businessId, ...dateFilter }).select("amount").lean(),
-    DebtModel.find({ userId, businessId, ...dateFilter }).select("type amount").lean(),
+    ExpenseModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("type amount date").lean(),
+    InvestmentModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("amount").lean(),
+    DrawModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("amount").lean(),
+    DebtModel.find({ userId, businessId, deletedAt: null, ...dateFilter }).select("type amount").lean(),
   ]);
 
   const totalInvested = investments.reduce((sum, inv) => sum + (inv.amount ?? 0), 0);
