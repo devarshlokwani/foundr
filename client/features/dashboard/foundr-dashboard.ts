@@ -3,12 +3,14 @@ import { customElement, state, query } from "lit/decorators.js";
 import { getClerk } from "../auth/auth.service";
 import { apiGet } from "../../shared/lib/api";
 import type { DashboardMetrics } from "../../shared/lib/types";
-import "./foundr-add-entry";
+import "../../shared/components/foundr-add-entry";
 import "./foundr-insights";
 import "../onboarding/foundr-onboarding";
 import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-activity-feed";
+import "../../shared/components/foundr-page-actions";
+import "../../shared/components/foundr-migrate-modal";
 import type { FoundrInsights } from "./foundr-insights";
 import type { FoundrActivityFeed } from "../../shared/components/foundr-activity-feed";
 import { formatMoney } from "../../shared/lib/format";
@@ -34,6 +36,7 @@ export class FoundrDashboard extends LitElement {
   @state() private metrics: DashboardMetrics | null = null;
   @state() private userName = "founder";
   @state() private modalOpen = false;
+  @state() private migrateOpen = false;
   @state() private needsOnboarding = false;
   @state() private businessId = "";
   @state() private businessLabel = "";
@@ -130,6 +133,14 @@ export class FoundrDashboard extends LitElement {
     this.modalOpen = false;
   }
 
+  private _openMigrate(): void {
+    this.migrateOpen = true;
+  }
+
+  private _closeMigrate(): void {
+    this.migrateOpen = false;
+  }
+
   // After a new entry is saved, refresh the metrics so the dashboard updates.
  private async _onEntryAdded(): Promise<void> {
     await this._loadMetrics();
@@ -178,14 +189,6 @@ export class FoundrDashboard extends LitElement {
     .ti-trending-up:before { content: "\\eb43"; }
     .ti-wallet:before { content: "\\eb75"; }
     .ti-pencil-plus:before { content: "\\f1ec"; }
-    .ti-plus:before { content: "\\eb0b"; }
-    .add-btn {
-      background: var(--forest, #2D4A3E); color: #fff; font-size: 14px; font-weight: 500;
-      padding: 9px 16px; border-radius: var(--radius-pill, 999px); display: flex; align-items: center; gap: 6px;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
-    }
-    .add-btn:hover { background: var(--forest-deep, #1F3329); transform: translate(-5px, -5px); box-shadow: 5px 5px 0 var(--sage, #8AAF9A); }
-    .add-btn:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
@@ -259,9 +262,11 @@ export class FoundrDashboard extends LitElement {
   private _renderTopbar(): TemplateResult {
     return html`
       <foundr-topbar active="dashboard" businessName=${this.businessLabel}>
-        <button slot="actions" class="add-btn" @click=${this._openModal}>
-          <i class="ti ti-plus" aria-hidden="true"></i>Add entry
-        </button>
+        <foundr-page-actions
+          slot="actions"
+          @open-add-entry=${this._openModal}
+          @open-migrate=${this._openMigrate}
+        ></foundr-page-actions>
       </foundr-topbar>
     `;
   }
@@ -383,6 +388,12 @@ export class FoundrDashboard extends LitElement {
         @close=${this._closeModal}
         @entry-added=${this._onEntryAdded}
       ></foundr-add-entry>
+      <foundr-migrate-modal
+        .open=${this.migrateOpen}
+        businessId=${this.businessId}
+        @close=${this._closeMigrate}
+        @imported=${this._onEntryAdded}
+      ></foundr-migrate-modal>
       <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }

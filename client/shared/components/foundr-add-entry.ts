@@ -1,9 +1,9 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { apiGet, apiPost } from "../../shared/lib/api";
-import { currencySymbol } from "../../shared/lib/format";
-import { createRecurringRule } from "../../shared/lib/recurring";
+import { apiGet, apiPost } from "../lib/api";
+import { currencySymbol } from "../lib/format";
+import { createRecurringRule } from "../lib/recurring";
 
 type EntryKind = "expense" | "revenue" | "investment" | "draw" | "debt";
 type DebtDirection = "borrow" | "repay";

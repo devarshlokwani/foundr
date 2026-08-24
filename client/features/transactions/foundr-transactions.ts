@@ -12,6 +12,9 @@ import "../../shared/components/foundr-topbar";
 import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-tour-overlay";
 import "../../shared/components/foundr-recurring-list";
+import "../../shared/components/foundr-page-actions";
+import "../../shared/components/foundr-add-entry";
+import "../../shared/components/foundr-migrate-modal";
 
 type Kind = UnifiedEntry["kind"];
 type Section = "active" | "recurring" | "deleted";
@@ -53,6 +56,8 @@ export class FoundrTransactions extends LitElement {
   @state() private businessId = "";
   @state() private businessLabel = "";
   @state() private section: Section = "active";
+  @state() private addEntryOpen = false;
+  @state() private migrateOpen = false;
 
   // Search — debounced, resets to page 1 on change.
   @state() private search = "";
@@ -154,6 +159,22 @@ export class FoundrTransactions extends LitElement {
   private async _refresh(): Promise<void> {
     this.loading = true;
     await this._load();
+  }
+
+  private _openAddEntry(): void {
+    this.addEntryOpen = true;
+  }
+
+  private _closeAddEntry(): void {
+    this.addEntryOpen = false;
+  }
+
+  private _openMigrate(): void {
+    this.migrateOpen = true;
+  }
+
+  private _closeMigrate(): void {
+    this.migrateOpen = false;
   }
 
   // ---- Section tabs ----
@@ -787,7 +808,10 @@ export class FoundrTransactions extends LitElement {
     .btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .empty { text-align: center; padding: 60px 20px; color: var(--ink-soft, #6B6B66); }
-    .empty a { color: var(--forest, #2D4A3E); }
+    .empty a, .empty .link-btn {
+      color: var(--forest, #2D4A3E); background: none; border: none; padding: 0; font: inherit;
+      cursor: pointer; text-decoration: underline;
+    }
     .error-box { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; }
     .list-area { position: relative; min-height: 240px; }
     .loader-overlay {
@@ -989,7 +1013,7 @@ export class FoundrTransactions extends LitElement {
     }
     return this.isFiltered
       ? html`No entries match your search or filters.`
-      : html`No entries yet. <a href="/dashboard">Add your first one</a> from the dashboard.`;
+      : html`No entries yet. <button class="link-btn" @click=${this._openAddEntry}>Add your first one</button>.`;
   }
 
   private _renderSectionTabs(): TemplateResult {
@@ -1066,7 +1090,13 @@ export class FoundrTransactions extends LitElement {
 
   render(): TemplateResult {
     return html`
-      <foundr-topbar active="transactions" businessName=${this.businessLabel}></foundr-topbar>
+      <foundr-topbar active="transactions" businessName=${this.businessLabel}>
+        <foundr-page-actions
+          slot="actions"
+          @open-add-entry=${this._openAddEntry}
+          @open-migrate=${this._openMigrate}
+        ></foundr-page-actions>
+      </foundr-topbar>
 
       <div class="page">
         <h1>All entries</h1>
@@ -1083,6 +1113,18 @@ export class FoundrTransactions extends LitElement {
       ${this._renderFilterDrawer()}
       ${this._renderUndoToast()}
       ${this._renderPermanentDeleteConfirm()}
+      <foundr-add-entry
+        .open=${this.addEntryOpen}
+        businessId=${this.businessId}
+        @close=${this._closeAddEntry}
+        @entry-added=${this._refresh}
+      ></foundr-add-entry>
+      <foundr-migrate-modal
+        .open=${this.migrateOpen}
+        businessId=${this.businessId}
+        @close=${this._closeMigrate}
+        @imported=${this._refresh}
+      ></foundr-migrate-modal>
       <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }

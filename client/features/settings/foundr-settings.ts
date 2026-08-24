@@ -25,7 +25,7 @@ import "../../shared/components/foundr-trash-list";
 import "../../shared/components/foundr-import-panel";
 
 type Gender = UserSettings["gender"];
-type Section = "general" | "profile" | "security" | "startups" | "recurring" | "trash" | "activity" | "import";
+type Section = "general" | "profile" | "security" | "startups" | "recurring" | "trash" | "activity" | "migrate";
 
 const ACTIVITY_PAGE_SIZE = 20;
 
@@ -50,7 +50,7 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: "recurring", label: "Recurring", icon: "ti-repeat" },
   { key: "trash", label: "Trash", icon: "ti-trash" },
   { key: "activity", label: "Activity", icon: "ti-history" },
-  { key: "import", label: "Import", icon: "ti-upload" },
+  { key: "migrate", label: "Migrate", icon: "ti-upload" },
 ];
 
 const NAV_ITEM_HEIGHT = 44;
@@ -997,12 +997,12 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
-  private _renderImport(): TemplateResult {
+  private _renderMigrate(): TemplateResult {
     return html`
       <div class="card">
         <div class="setting-info">
-          <div class="label">Import</div>
-          <div class="desc">Bring in data from wherever you were tracking things before — a rulebook, a copy-pasteable AI prompt, and a JSON/CSV upload.</div>
+          <div class="label">Migrate</div>
+          <div class="desc">Bring in data from wherever you were tracking things before — a rulebook, a copy-pasteable AI prompt, and a JSON/CSV upload. Also reachable from the Actions menu on Dashboard and All Entries.</div>
         </div>
         <foundr-import-panel businessId=${this.activeBusinessId}></foundr-import-panel>
       </div>
@@ -1019,7 +1019,7 @@ export class FoundrSettings extends LitElement {
       else if (this.section === "recurring") content = this._renderRecurring();
       else if (this.section === "trash") content = this._renderTrash();
       else if (this.section === "activity") content = this._renderActivity();
-      else content = this._renderImport();
+      else content = this._renderMigrate();
     }
 
     return html`

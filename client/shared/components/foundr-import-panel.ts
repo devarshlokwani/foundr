@@ -34,17 +34,22 @@ Output ONLY a raw JSON array — no markdown code fences, no explanation, no com
 
 Each item in the array must be an object with exactly these fields:
 
-- "kind": one of "expense", "revenue", "investment", "draw", "debt", "repayment"
+- "kind" (REQUIRED): one of "expense", "revenue", "investment", "draw", "debt", "repayment" — exactly one of these six strings, nothing else
   - "expense" = money spent running the business
   - "revenue" = money earned from customers/sales
   - "investment" = money the founder put into the business
   - "draw" = money the founder took out of the business personally
   - "debt" = money borrowed (a loan taken)
   - "repayment" = money paid back on a loan
-- "amount": a positive number, no currency symbols or commas (e.g. 1200.50)
-- "label": a short string. For "expense"/"revenue"/"draw" this is the category (e.g. "Software", "Consulting", "Personal"). For "investment"/"debt"/"repayment" this is the source (e.g. "Personal savings", "Bank loan").
-- "note": a short string, can be an empty string ""
-- "date": an ISO date string, e.g. "2026-01-15"
+- "amount" (REQUIRED): a positive number greater than zero, no currency symbols or commas (e.g. 1200.50, not "$1,200.50")
+- "label" (REQUIRED): a short non-empty string. For "expense"/"revenue"/"draw" this is the category (e.g. "Software", "Consulting", "Personal"). For "investment"/"debt"/"repayment" this is the source (e.g. "Personal savings", "Bank loan").
+- "date" (REQUIRED): an ISO date string, e.g. "2026-01-15"
+- "note" (optional): a short string — use "" if there's nothing to put here, never omit the field entirely
+
+A record is only skipped if one of the four REQUIRED fields is truly missing or invalid — so:
+- If you can't find a date for a record, use your best guess (e.g. the nearest date you do have, or today's date) rather than leaving it out.
+- If a record is missing a category/source, use a reasonable label like "Uncategorized" or "Other" rather than dropping the record.
+- Never invent a "kind" or "amount" — if either of those two is truly unknowable for a record, it's fine to leave that one record out (everything else you produce will still import).
 
 Example of the exact output shape:
 [
@@ -83,6 +88,8 @@ export class FoundrImportPanel extends LitElement {
   @state() private importing = false;
   @state() private result: ImportResult | null = null;
   @state() private resultError = "";
+  @state() private dragging = false;
+  private _dragDepth = 0;
 
   private _goto(i: number): void {
     this.step = i;
@@ -119,12 +126,45 @@ export class FoundrImportPanel extends LitElement {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    await this._handleFile(file);
+  }
 
+  private _onDragEnter(e: DragEvent): void {
+    e.preventDefault();
+    this._dragDepth += 1;
+    this.dragging = true;
+  }
+
+  private _onDragOver(e: DragEvent): void {
+    e.preventDefault();
+  }
+
+  private _onDragLeave(e: DragEvent): void {
+    e.preventDefault();
+    this._dragDepth = Math.max(0, this._dragDepth - 1);
+    if (this._dragDepth === 0) this.dragging = false;
+  }
+
+  private async _onDrop(e: DragEvent): Promise<void> {
+    e.preventDefault();
+    this._dragDepth = 0;
+    this.dragging = false;
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    await this._handleFile(file);
+  }
+
+  private async _handleFile(file: File): Promise<void> {
     this.fileName = file.name;
     this.parseError = "";
     this.parsedRows = [];
     this.result = null;
     this.resultError = "";
+
+    if (!/\.(json|csv)$/i.test(file.name)) {
+      this.parseError = "That file isn't a .json or .csv file.";
+      return;
+    }
 
     const text = await file.text();
 
@@ -161,6 +201,9 @@ export class FoundrImportPanel extends LitElement {
     this.result = null;
     try {
       this.result = await importEntries(this.businessId, this.parsedRows);
+      if (this.result.imported > 0) {
+        this.dispatchEvent(new CustomEvent("imported", { bubbles: true, composed: true }));
+      }
     } catch (err) {
       this.resultError = err instanceof Error ? err.message : "Import failed. Please try again.";
     } finally {
@@ -203,17 +246,23 @@ export class FoundrImportPanel extends LitElement {
 
     .rail { background: var(--surface-alt, #F2EFE8); border-right: 1px solid var(--line, #E2DFD7); padding: 22px 18px; display: flex; flex-direction: column; gap: 4px; }
     .rail-step {
-      display: flex; align-items: flex-start; gap: 12px; padding: 12px 10px; border-radius: 14px;
+      display: flex; align-items: stretch; gap: 12px; padding: 12px 10px; border-radius: 14px;
       background: transparent; border: none; text-align: left; width: 100%; color: inherit;
       transition: background 0.15s ease;
     }
     .rail-step:hover { background: rgba(45,74,62,0.06); }
     .rail-step.active { background: var(--surface, #FAFAF7); box-shadow: 0 1px 0 rgba(0,0,0,0.02); }
+    .rail-badge-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; position: relative; }
     .rail-badge {
       width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
       font-size: 13px; font-weight: 600; border: 1.5px solid var(--line, #E2DFD7); color: var(--ink-soft, #6B6B66);
       background: var(--surface, #FAFAF7);
     }
+    .rail-connector {
+      position: absolute; top: 30px; bottom: -20px; left: 50%; width: 2px; transform: translateX(-50%);
+      background: var(--line, #E2DFD7); transition: background 0.2s ease;
+    }
+    .rail-connector.done { background: var(--forest, #2D4A3E); }
     .rail-step.active .rail-badge { border-color: var(--forest, #2D4A3E); color: var(--forest, #2D4A3E); }
     .rail-step.done .rail-badge { background: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); color: #fff; }
     .rail-text .t { font-size: 13.5px; font-weight: 600; }
@@ -264,13 +313,29 @@ export class FoundrImportPanel extends LitElement {
     ol.steps-list li strong { display: block; margin-bottom: 2px; }
 
     .upload-zone {
-      display: flex; flex-direction: column; align-items: center; cursor: pointer;
+      position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer;
       border: 1.5px dashed var(--line, #E2DFD7); border-radius: 16px; padding: 28px 20px; text-align: center;
-      background: var(--surface-alt, #F2EFE8);
+      background: var(--surface-alt, #F2EFE8); transition: background 0.15s ease, border-color 0.15s ease;
     }
+    .upload-zone:hover { background: var(--sage-soft, #DDE7E0); border-color: transparent; }
+    .upload-zone.dragging { background: var(--sage-soft, #DDE7E0); border-color: transparent; transform: scale(1.01); }
     .upload-zone input[type="file"] { display: none; }
-    .upload-zone .ti-upload { font-size: 22px; color: var(--forest, #2D4A3E); margin-bottom: 8px; }
+    .upload-zone .ti-upload { font-size: 22px; color: var(--forest, #2D4A3E); margin-bottom: 8px; transition: transform 0.15s ease; }
+    .upload-zone:hover .ti-upload, .upload-zone.dragging .ti-upload { transform: translateY(-2px); }
     .upload-zone .hint { font-size: 12px; color: var(--ink-soft, #6B6B66); margin-top: 6px; }
+    .marching-ants {
+      position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s ease;
+    }
+    .upload-zone:hover .marching-ants, .upload-zone.dragging .marching-ants { opacity: 1; }
+    .marching-ants rect {
+      fill: none; stroke: var(--forest, #2D4A3E); stroke-width: 2; stroke-dasharray: 7 5;
+      animation: march 0.5s linear infinite;
+    }
+    @keyframes march { to { stroke-dashoffset: -24; } }
+    @media (prefers-reduced-motion: reduce) {
+      .marching-ants rect { animation: none; }
+    }
     .file-chip { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 12px; background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7); border-radius: var(--radius-pill, 999px); font-size: 12.5px; }
 
     .preview-table-wrap { max-height: 260px; overflow: auto; border: 1px solid var(--line, #E2DFD7); border-radius: 12px; margin-top: 14px; }
@@ -282,6 +347,7 @@ export class FoundrImportPanel extends LitElement {
     .status-box { margin-top: 16px; padding: 12px 14px; border-radius: 12px; font-size: 13px; }
     .status-box.error { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3); }
     .status-box.ok { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); }
+    .status-box.warn { background: rgba(201, 138, 43, 0.12); color: var(--tone-warn, #C98A2B); border: 1px solid rgba(201, 138, 43, 0.35); }
     .skip-list { margin: 8px 0 0; padding-left: 18px; max-height: 140px; overflow: auto; }
 
     .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line, #E2DFD7); }
@@ -310,15 +376,19 @@ export class FoundrImportPanel extends LitElement {
           <div class="panel-body">
             <div class="rulebook-wrap">
               <table class="rulebook">
-                <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+                <thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead>
                 <tbody>
-                  <tr><td><code>kind</code></td><td>string</td><td>One of <code>expense</code>, <code>revenue</code>, <code>investment</code>, <code>draw</code>, <code>debt</code>, <code>repayment</code>.</td></tr>
-                  <tr><td><code>amount</code></td><td>number</td><td>Positive number — no currency symbols or commas.</td></tr>
-                  <tr><td><code>label</code></td><td>string</td><td>Category for expense/revenue/draw (e.g. "Software"), or source for investment/debt/repayment (e.g. "Bank loan").</td></tr>
-                  <tr><td><code>note</code></td><td>string</td><td>Optional — can be an empty string.</td></tr>
-                  <tr><td><code>date</code></td><td>string</td><td>ISO date, e.g. <code>2026-01-15</code>.</td></tr>
+                  <tr><td><code>kind</code></td><td>Yes</td><td>One of <code>expense</code>, <code>revenue</code>, <code>investment</code>, <code>draw</code>, <code>debt</code>, <code>repayment</code>.</td></tr>
+                  <tr><td><code>amount</code></td><td>Yes</td><td>Positive number — no currency symbols or commas.</td></tr>
+                  <tr><td><code>label</code></td><td>Yes</td><td>Category for expense/revenue/draw (e.g. "Software"), or source for investment/debt/repayment (e.g. "Bank loan").</td></tr>
+                  <tr><td><code>date</code></td><td>Yes</td><td>ISO date, e.g. <code>2026-01-15</code>.</td></tr>
+                  <tr><td><code>note</code></td><td>No</td><td>Can be left as an empty string.</td></tr>
                 </tbody>
               </table>
+            </div>
+            <div class="privacy-note">
+              <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+              <span>Import is per-row — a few rows missing required fields won't block the rest. Anything that doesn't fit is skipped with a reason, everything else still comes in.</span>
             </div>
             <div class="template-row">
               <button class="btn-ghost" @click=${this._downloadJsonTemplate}><i class="ti ti-download" aria-hidden="true"></i>Download JSON template</button>
@@ -363,6 +433,33 @@ export class FoundrImportPanel extends LitElement {
     }
   }
 
+  private _renderResult(result: ImportResult): TemplateResult {
+    const total = result.imported + result.skipped.length;
+    const outcome = result.imported === 0 ? "failure" : result.skipped.length === 0 ? "success" : "partial";
+
+    const summary =
+      outcome === "success"
+        ? html`<div class="status-box ok"><i class="ti ti-check" aria-hidden="true"></i> Imported ${result.imported} row(s).</div>`
+        : outcome === "partial"
+          ? html`<div class="status-box warn"><i class="ti ti-alert-triangle" aria-hidden="true"></i> ${result.imported} out of ${total} row(s) imported successfully.</div>`
+          : html`<div class="status-box error"><i class="ti ti-alert-triangle" aria-hidden="true"></i> 0 out of ${total} row(s) imported.</div>`;
+
+    return html`
+      ${summary}
+      ${result.skipped.length > 0
+        ? html`
+            <div class="status-box ${outcome === "failure" ? "error" : "warn"}">
+              ${result.skipped.length} row(s) skipped:
+              <ul class="skip-list">
+                ${result.skipped.map((s) => html`<li>Row ${s.row}: ${s.reason}</li>`)}
+              </ul>
+            </div>
+          `
+        : ""}
+      <div class="template-row"><button class="btn-ghost" @click=${this._reset}>Import another file</button></div>
+    `;
+  }
+
   private _renderUploadStep(): TemplateResult {
     const preview = this.parsedRows.slice(0, 8);
     return html`
@@ -370,10 +467,17 @@ export class FoundrImportPanel extends LitElement {
       <h2>Upload & import</h2>
       <p class="lede">Upload the JSON file from Step 3, or a CSV built from the template in Step 1.</p>
       <div class="panel-body">
-        <label class="upload-zone">
+        <label
+          class="upload-zone ${this.dragging ? "dragging" : ""}"
+          @dragenter=${this._onDragEnter}
+          @dragover=${this._onDragOver}
+          @dragleave=${this._onDragLeave}
+          @drop=${this._onDrop}
+        >
+          <svg class="marching-ants" aria-hidden="true"><rect x="1" y="1" width="99%" height="99%" rx="15"></rect></svg>
           <input type="file" accept=".json,.csv" @change=${this._onFile} />
           <i class="ti ti-upload" aria-hidden="true"></i>
-          <div>Click to choose a file</div>
+          <div>${this.dragging ? "Drop it here" : "Click to choose a file, or drag one here"}</div>
           <div class="hint">.json or .csv</div>
           ${this.fileName
             ? html`<div class="file-chip"><i class="ti ti-file" aria-hidden="true"></i>${this.fileName}</div>`
@@ -409,22 +513,7 @@ export class FoundrImportPanel extends LitElement {
 
         ${this.resultError ? html`<div class="status-box error"><i class="ti ti-alert-triangle" aria-hidden="true"></i> ${this.resultError}</div>` : ""}
 
-        ${this.result
-          ? html`
-              <div class="status-box ok"><i class="ti ti-check" aria-hidden="true"></i> Imported ${this.result.imported} row(s).</div>
-              ${this.result.skipped.length > 0
-                ? html`
-                    <div class="status-box error">
-                      ${this.result.skipped.length} row(s) skipped:
-                      <ul class="skip-list">
-                        ${this.result.skipped.map((s) => html`<li>Row ${s.row}: ${s.reason}</li>`)}
-                      </ul>
-                    </div>
-                  `
-                : ""}
-              <div class="template-row"><button class="btn-ghost" @click=${this._reset}>Import another file</button></div>
-            `
-          : ""}
+        ${this.result ? this._renderResult(this.result) : ""}
       </div>
     `;
   }
@@ -436,7 +525,10 @@ export class FoundrImportPanel extends LitElement {
           ${STEPS.map(
             (s, i) => html`
               <button class="rail-step ${i === this.step ? "active" : ""} ${i < this.step ? "done" : ""}" @click=${() => this._goto(i)}>
-                <span class="rail-badge">${i < this.step ? html`<i class="ti ti-check" aria-hidden="true"></i>` : i + 1}</span>
+                <span class="rail-badge-col">
+                  <span class="rail-badge">${i < this.step ? html`<i class="ti ti-check" aria-hidden="true"></i>` : i + 1}</span>
+                  ${i < STEPS.length - 1 ? html`<span class="rail-connector ${i < this.step ? "done" : ""}"></span>` : ""}
+                </span>
                 <span class="rail-text">
                   <span class="t">${s.title}</span>
                   <span class="d">${s.desc}</span>
