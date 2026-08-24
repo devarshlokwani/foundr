@@ -89,14 +89,13 @@ export class FoundrDashboard extends LitElement {
     await this._loadMetrics();
   }
 
-  private async _onOnboardingDone(e: CustomEvent<{ businessId: string; goToSecurity: boolean }>): Promise<void> {
-    if (e.detail.goToSecurity) {
-      window.location.href = "/settings?section=security";
-      return;
-    }
-    this.needsOnboarding = false;
-    this.loading = true;
-    await this._loadBusinessAndMetrics(e.detail.businessId);
+  // Recovery email (if any) is already added inline by the wizard now, so
+  // there's no separate "finish in Settings" trip. Land on the startup
+  // switcher instead of jumping straight into the dashboard — the founder
+  // just created their first business, so confirming/seeing it there
+  // reads better than skipping past it.
+  private _onOnboardingDone(): void {
+    window.location.href = "/business";
   }
 
   private async _loadMetrics(): Promise<void> {

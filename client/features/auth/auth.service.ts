@@ -339,8 +339,17 @@ export async function removeEmail(emailId: string): Promise<AuthResult> {
 /** Pull a human-readable message out of a Clerk error. */
 function readClerkError(err: unknown): string {
   if (err && typeof err === "object" && "errors" in err) {
-    const arr = (err as { errors?: Array<{ message?: string; longMessage?: string }> }).errors;
+    const arr = (err as { errors?: Array<{ code?: string; message?: string; longMessage?: string }> }).errors;
     if (arr && arr.length > 0) {
+      // Clerk requires "reverification" (a fresh confirmation of identity)
+      // for some sensitive actions — e.g. adding an email — and this app
+      // doesn't have Clerk's step-up verification UI wired up to handle
+      // that automatically, so the raw API error would otherwise surface
+      // as opaque, technical text ("You need to provide additional
+      // verification to perform this operation").
+      if (arr[0].code === "session_reverification_required") {
+        return "This needs a fresh sign-in to confirm it's really you — try signing out and back in, or skip it for now.";
+      }
       return arr[0].longMessage || arr[0].message || "Something went wrong.";
     }
   }
