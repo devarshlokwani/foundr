@@ -5,7 +5,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Transactions API — the founder's income and expense entries for one
+ * Transactions API: the founder's income and expense entries for one
  * business. Every route is scoped to the signed-in user AND the business
  * named in `?businessId=`, so a founder can only ever read or change their
  * own records, and one startup's numbers never bleed into another's.
@@ -64,7 +64,7 @@ router.post("/", async (req: Request, res: Response) => {
   const kindLabel = created.type === "income" ? "revenue" : "expense";
   void logActivity({
     userId: userId!, businessId: businessId!, action: "create", entityType: "expense", entityId: String(created._id),
-    summary: `Added ${created.amount} ${kindLabel} — ${created.category}`,
+    summary: `Added ${created.amount} ${kindLabel}: ${created.category}`,
   });
   res.status(201).json(created);
 });
@@ -82,7 +82,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
   const kindLabel = updated.type === "income" ? "revenue" : "expense";
   void logActivity({
     userId: userId!, businessId: businessId!, action: "update", entityType: "expense", entityId: String(updated._id),
-    summary: `Updated ${kindLabel} — ${updated.category}`,
+    summary: `Updated ${kindLabel}: ${updated.category}`,
   });
   res.json(updated);
 });
@@ -100,7 +100,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   const kindLabel = deleted.type === "income" ? "revenue" : "expense";
   void logActivity({
     userId: userId!, businessId: businessId!, action: "delete", entityType: "expense", entityId: String(deleted._id),
-    summary: `Deleted ${deleted.amount} ${kindLabel} — ${deleted.category}`,
+    summary: `Deleted ${deleted.amount} ${kindLabel}: ${deleted.category}`,
   });
   res.json({ ok: true });
 });
@@ -118,7 +118,7 @@ router.post("/:id/restore", async (req: Request, res: Response) => {
   const kindLabel = restored.type === "income" ? "revenue" : "expense";
   void logActivity({
     userId: userId!, businessId: businessId!, action: "restore", entityType: "expense", entityId: String(restored._id),
-    summary: `Restored ${kindLabel} — ${restored.category}`,
+    summary: `Restored ${kindLabel}: ${restored.category}`,
   });
   res.json(restored);
 });

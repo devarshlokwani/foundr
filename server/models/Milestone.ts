@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
 /**
- * A Milestone is a goal the founder is working toward — "break even on my
+ * A Milestone is a goal the founder is working toward: "break even on my
  * investment", "reach 10 customers", "first ₹1L in revenue".
  *
  * `targetAmount` is optional because some milestones are monetary (break

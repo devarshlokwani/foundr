@@ -1,5 +1,5 @@
 /**
- * The virtual tour — a manually-launched, cross-page walkthrough that
+ * The virtual tour: a manually-launched, cross-page walkthrough that
  * highlights real UI on Dashboard, All entries, Margins, Startups, and
  * Settings in turn.
  *
@@ -8,7 +8,7 @@
  * carries just the step index across that reload; each page's
  * <foundr-tour-overlay> reads it on connect and renders the step if it's
  * the one meant for that page. sessionStorage (not localStorage) is
- * deliberate — a tour is a single-session activity, closing the tab
+ * deliberate: a tour is a single-session activity, closing the tab
  * should reset it rather than resuming days later.
  */
 
@@ -32,7 +32,7 @@ export const TOUR_STEPS: TourStep[] = [
     selector: ".grid",
     icon: "ti-building-store",
     title: "This is home base",
-    body: "Every startup or side hustle you track lives here, each with its own fully separate dashboard — numbers never mix between them. Pick one to get started, or add another anytime.",
+    body: "Every startup or side hustle you track lives here, each with its own fully separate dashboard. Numbers never mix between them. Pick one to get started, or add another anytime.",
   },
   {
     id: "kpis",
@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     selector: ".kpi-grid",
     icon: "ti-flame",
     title: "Your numbers, at a glance",
-    body: "Burn, runway, ROI, and cash left — the four things that matter most, calculated automatically from what you track. No spreadsheet required.",
+    body: "Burn, runway, ROI, and cash left: the four things that matter most, calculated automatically from what you track. No spreadsheet required.",
   },
   {
     id: "add-entry",
@@ -50,7 +50,7 @@ export const TOUR_STEPS: TourStep[] = [
     selector: ".add-btn",
     icon: "ti-pencil-plus",
     title: "Add anything in seconds",
-    body: "Expenses, revenue, investments, draws, or debt — one button, a few fields, and your metrics update instantly.",
+    body: "Expenses, revenue, investments, draws, or debt: one button, a few fields, and your metrics update instantly.",
   },
   {
     id: "entries",
@@ -68,7 +68,7 @@ export const TOUR_STEPS: TourStep[] = [
     selector: ".section-tabs",
     icon: "ti-report-money",
     title: "Margins and a full balance sheet",
-    body: "Switch between a margins breakdown and a real Assets = Liabilities + Equity balance sheet, both generated automatically — export either as CSV whenever you need it.",
+    body: "Switch between a margins breakdown and a real Assets = Liabilities + Equity balance sheet, both generated automatically. Export either as CSV whenever you need it.",
   },
   {
     id: "settings",
@@ -95,8 +95,8 @@ const STATE_KEY = "foundr-tour-state";
 /**
  * Fired on `window` whenever the tour's state changes (start, step, end).
  * Writing to sessionStorage alone doesn't wake up an already-mounted
- * <foundr-tour-overlay> — the tab's own writes never fire the native
- * `storage` event (that only fires in *other* tabs) — so launching the
+ * <foundr-tour-overlay>: the tab's own writes never fire the native
+ * `storage` event (that only fires in *other* tabs), so launching the
  * tour from a page it's already showing needs this to take effect
  * immediately instead of only after a reload.
  */
@@ -124,7 +124,7 @@ function writeState(stepIndex: number): void {
   try {
     sessionStorage.setItem(STATE_KEY, JSON.stringify({ stepIndex }));
   } catch {
-    // Storage unavailable (private browsing) — the tour just can't be enforced this session.
+    // Storage unavailable (private browsing); the tour just can't be enforced this session.
   }
   window.dispatchEvent(new CustomEvent(TOUR_CHANGE_EVENT));
 }
@@ -151,7 +151,7 @@ export function endTour(): void {
 }
 
 /**
- * Advances to a specific step (by index — dots and Back/Next both use
+ * Advances to a specific step (by index; dots and Back/Next both use
  * this). Navigates to that step's page if it isn't the current one;
  * otherwise just persists the index so the current page's overlay
  * re-renders in place.

@@ -91,7 +91,7 @@ export class FoundrDashboard extends LitElement {
 
   // Recovery email (if any) is already added inline by the wizard now, so
   // there's no separate "finish in Settings" trip. Land on the startup
-  // switcher instead of jumping straight into the dashboard — the founder
+  // switcher instead of jumping straight into the dashboard, the founder
   // just created their first business, so confirming/seeing it there
   // reads better than skipping past it.
   private _onOnboardingDone(): void {
@@ -159,12 +159,12 @@ export class FoundrDashboard extends LitElement {
   }
 
   private _pct(n: number | null): string {
-    if (n === null) return "—";
+    if (n === null) return "-";
     return (n >= 0 ? "+" : "") + Math.round(n * 100) + "%";
   }
 
   private _runway(n: number | null): string {
-    if (n === null) return "—";
+    if (n === null) return "-";
     return n.toFixed(1) + " mo";
   }
 
@@ -270,7 +270,7 @@ export class FoundrDashboard extends LitElement {
     `;
   }
 
-  // The header shows immediately (userName is known before metrics load) —
+  // The header shows immediately (userName is known before metrics load);
   // isEmpty defaults to true while loading, so this reads naturally as the
   // first-time-user copy until real data says otherwise.
   private _renderHeader(): TemplateResult {
@@ -348,7 +348,7 @@ export class FoundrDashboard extends LitElement {
           </div>
           <div class="card">
             <div class="card-label">Gross margin</div>
-            <div class="card-value">${m.grossMargin === null ? "—" : this._pct(m.grossMargin)}</div>
+            <div class="card-value">${m.grossMargin === null ? "-" : this._pct(m.grossMargin)}</div>
           </div>
         </div>
 

@@ -5,7 +5,7 @@ import { apiPost, apiDelete } from "../lib/api";
 import type { ActivityLogEntry } from "../lib/types";
 
 /**
- * Which collection route reverses a given entity type — only the 4 ledger
+ * Which collection route reverses a given entity type: only the 4 ledger
  * kinds are soft-deletable/restorable; businesses/categories/recurring
  * rules are hard-deleted so there's nothing to undo them through.
  */
@@ -21,10 +21,10 @@ function collectionPath(entityType: ActivityLogEntry["entityType"]): string | nu
 
 /**
  * <foundr-activity-feed>
- * A compact "what just happened" glance for the dashboard — the last few
+ * A compact "what just happened" glance for the dashboard: the last few
  * logged mutations, no pagination, with an Undo on the ones that reverse
  * cleanly (create/delete/restore, via the same restore/delete endpoints
- * everywhere else already uses). "Update" isn't undo-able here — reversing
+ * everywhere else already uses). "Update" isn't undo-able here: reversing
  * an edit would need the field values from before the change, which the
  * activity log doesn't capture; that'd be a real schema change, not a
  * small addition, so it's deliberately out of scope for now.
@@ -76,7 +76,7 @@ export class FoundrActivityFeed extends LitElement {
         // Undoing a create or a restore = (soft-)delete it again.
         await apiDelete(`/${path}/${a.entityId}?businessId=${this.businessId}`);
       }
-      // The undo itself is a real mutation and gets its own log entry —
+      // The undo itself is a real mutation and gets its own log entry;
       // refreshing picks that up too, which is correct: an undo is an
       // auditable action, not something that erases its own trail.
       await this.refresh();

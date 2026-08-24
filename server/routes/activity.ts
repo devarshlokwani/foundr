@@ -4,7 +4,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { ActivityLogModel } from "../models/ActivityLog.js";
 
 /**
- * Activity API — a paginated, newest-first record of who changed what and
+ * Activity API: a paginated, newest-first record of who changed what and
  * when for one business. Written by lib/activityLog.ts, called from every
  * mutating route across the ledger and config collections.
  *

@@ -4,7 +4,7 @@ import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
 
 /**
- * Milestones API — the founder's goals for one business.
+ * Milestones API: the founder's goals for one business.
  * Scoped to the signed-in user and `?businessId=`.
  *
  * Routes:

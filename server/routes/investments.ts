@@ -5,9 +5,9 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Investments API — money the founder has put into one business.
+ * Investments API: money the founder has put into one business.
  * Scoped to the signed-in user and `?businessId=`, same as transactions.
- * Deletion is soft — see routes/transactions.ts's doc comment for the
+ * Deletion is soft; see routes/transactions.ts's doc comment for the
  * full reasoning, identical here.
  *
  * Routes:
@@ -49,7 +49,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "create", entityType: "investment", entityId: String(created._id),
-    summary: `Added ${created.amount} investment — ${created.source}`,
+    summary: `Added ${created.amount} investment: ${created.source}`,
   });
   res.status(201).json(created);
 });
@@ -79,7 +79,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "update", entityType: "investment", entityId: String(updated._id),
-    summary: `Updated investment — ${updated.source}`,
+    summary: `Updated investment: ${updated.source}`,
   });
   res.json(updated);
 });
@@ -96,7 +96,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "delete", entityType: "investment", entityId: String(deleted._id),
-    summary: `Deleted ${deleted.amount} investment — ${deleted.source}`,
+    summary: `Deleted ${deleted.amount} investment: ${deleted.source}`,
   });
   res.json({ ok: true });
 });
@@ -113,7 +113,7 @@ router.post("/:id/restore", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "restore", entityType: "investment", entityId: String(restored._id),
-    summary: `Restored investment — ${restored.source}`,
+    summary: `Restored investment: ${restored.source}`,
   });
   res.json(restored);
 });

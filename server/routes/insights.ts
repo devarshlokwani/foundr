@@ -13,7 +13,7 @@ function parseGranularity(value: unknown): Granularity {
 }
 
 /**
- * Insights API — data for the dashboard and margins-trends charts, for
+ * Insights API: data for the dashboard and margins-trends charts, for
  * one business. Returns the spending-by-category breakdown, the running
  * cash series, and the per-bucket income/expense series.
  *

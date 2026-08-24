@@ -88,7 +88,7 @@ export async function verifyEmailCode(code: string): Promise<AuthResult> {
     if (res.status === "complete" && res.createdSessionId) {
       await ctx.clerk.setActive({ session: res.createdSessionId });
       // Every sign-in path lands on the startup switcher first, not the
-      // dashboard directly — a founder with more than one business should
+      // dashboard directly: a founder with more than one business should
       // choose which one before seeing any numbers. A brand-new account
       // (not onboarded yet) gets bounced from there straight into the
       // wizard, same as before.
@@ -141,12 +141,12 @@ export async function signInWithGoogle(): Promise<AuthResult> {
 }
 
 /**
- * Forgot-password flow, three steps against `client.signIn` (not `signUp` —
+ * Forgot-password flow, three steps against `client.signIn` (not `signUp`;
  * this signs the user back in once their new password is set):
- *   1. requestPasswordReset(email)    — sends the code, to whichever of the
+ *   1. requestPasswordReset(email): sends the code, to whichever of the
  *      account's verified emails (primary or a recovery one) was given.
- *   2. confirmPasswordResetCode(code) — verifies it.
- *   3. setNewPassword(password)       — sets the password and completes the
+ *   2. confirmPasswordResetCode(code): verifies it.
+ *   3. setNewPassword(password): sets the password and completes the
  *      sign-in, same as signInWithEmail.
  */
 export async function requestPasswordReset(email: string): Promise<AuthResult> {
@@ -205,7 +205,7 @@ async function getUser() {
   return c.user;
 }
 
-/** Update the founder's first/last name — this is Clerk identity data, not ours. */
+/** Update the founder's first/last name: this is Clerk identity data, not ours. */
 export async function updateProfileName(firstName: string, lastName: string): Promise<AuthResult> {
   const user = await getUser();
   if (!user) return { ok: false, error: "You must be signed in to do that." };
@@ -221,7 +221,7 @@ export async function updateProfileName(firstName: string, lastName: string): Pr
 export interface TOTPEnrollResult {
   ok: boolean;
   error?: string;
-  /** Plain manually-typeable setup key — no QR code needed. */
+  /** Plain manually-typeable setup key, no QR code needed. */
   secret?: string;
 }
 
@@ -267,7 +267,7 @@ export async function disableMFA(): Promise<AuthResult> {
 export interface BackupCodesResult {
   ok: boolean;
   error?: string;
-  /** One-time reveal — Clerk won't show these again after this call. */
+  /** One-time reveal: Clerk won't show these again after this call. */
   codes?: string[];
 }
 
@@ -310,7 +310,7 @@ export async function verifySecondaryEmail(emailId: string, code: string): Promi
   if (!user) return { ok: false, error: "You must be signed in to do that." };
 
   const emailResource = user.emailAddresses.find((e) => e.id === emailId);
-  if (!emailResource) return { ok: false, error: "That email address wasn't found — try adding it again." };
+  if (!emailResource) return { ok: false, error: "That email address wasn't found. Try adding it again." };
 
   try {
     await emailResource.attemptVerification({ code });
@@ -342,13 +342,13 @@ function readClerkError(err: unknown): string {
     const arr = (err as { errors?: Array<{ code?: string; message?: string; longMessage?: string }> }).errors;
     if (arr && arr.length > 0) {
       // Clerk requires "reverification" (a fresh confirmation of identity)
-      // for some sensitive actions — e.g. adding an email — and this app
+      // for some sensitive actions (e.g. adding an email) and this app
       // doesn't have Clerk's step-up verification UI wired up to handle
       // that automatically, so the raw API error would otherwise surface
       // as opaque, technical text ("You need to provide additional
       // verification to perform this operation").
       if (arr[0].code === "session_reverification_required") {
-        return "This needs a fresh sign-in to confirm it's really you — try signing out and back in, or skip it for now.";
+        return "This needs a fresh sign-in to confirm it's really you. Try signing out and back in, or skip it for now.";
       }
       return arr[0].longMessage || arr[0].message || "Something went wrong.";
     }

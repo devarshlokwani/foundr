@@ -5,12 +5,12 @@ import { UserSettingsModel } from "../models/UserSettings.js";
 /**
  * Dev-only utility: flips `onboarded` back to false so the next /dashboard
  * load shows the onboarding wizard again, instead of only ever seeing it
- * once on a real signup. Not part of the running app — run directly with
+ * once on a real signup. Not part of the running app; run directly with
  * `npm run reset-onboarding` (see package.json).
  *
  * Finishing the wizard afterward creates a real new Business each time
  * (that's the actual flow being tested), so repeated runs will leave a
- * few extra test businesses behind — delete those from Settings →
+ * few extra test businesses behind. Delete those from Settings →
  * Startups once you're done, or via DELETE /api/businesses/:id.
  */
 async function main(): Promise<void> {
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     return;
   }
   if (!userId && matches.length > 1) {
-    console.error(`Found ${matches.length} accounts — re-run with one of these as an argument:`);
+    console.error(`Found ${matches.length} accounts, re-run with one of these as an argument:`);
     for (const m of matches) console.error(`  npm run reset-onboarding -- ${m.userId}`);
     process.exitCode = 1;
     return;

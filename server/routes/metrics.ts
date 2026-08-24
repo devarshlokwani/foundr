@@ -10,14 +10,14 @@ import { parseRangeQuery } from "../lib/dateRange.js";
 import { materializeDueRules } from "../lib/recurring.js";
 
 /**
- * Metrics API — the calculated numbers that make Foundr useful.
+ * Metrics API: the calculated numbers that make Foundr useful.
  * Pulls one business's transactions and investments, runs them through
  * the pure functions in lib/metrics, and returns burn, runway, ROI,
  * margins, and totals in one call for the dashboard.
  *
  * Routes:
  *   GET /api/metrics?businessId=&rangeStart=&rangeEnd=  that business's
- *     metric summary — all-time if no range is given (see lib/dateRange.ts)
+ *     metric summary, all-time if no range is given (see lib/dateRange.ts)
  */
 const router = Router();
 

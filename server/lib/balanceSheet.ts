@@ -1,5 +1,5 @@
 /**
- * Balance sheet math, as a pure function — same style as metrics.ts.
+ * Balance sheet math, as a pure function, same style as metrics.ts.
  *
  * Assets = Liabilities + Equity, always, by construction:
  *   Assets      = Cash Remaining + Fixed Assets
@@ -7,7 +7,7 @@
  *   Equity      = Total Invested − Total Draws + Retained Earnings
  *
  * Retained Earnings = Revenue − *operating* expenses (capital purchases
- * are excluded — they became Fixed Assets instead of reducing earnings).
+ * are excluded: they became Fixed Assets instead of reducing earnings).
  * Cash Remaining already accounts for every dollar that left or entered
  * the bank (operating spend, capital spend, draws, borrowing, repayment),
  * so the identity holds exactly, not approximately.
@@ -52,7 +52,7 @@ export function computeBalanceSheet(inputs: BalanceSheetInputs): BalanceSheet {
       retainedEarnings: round(retainedEarnings),
       total: round(equityTotal),
     },
-    // Rounding-safe equality check — the identity should hold within a cent.
+    // Rounding-safe equality check: the identity should hold within a cent.
     balanced: Math.abs(assetsTotal - (liabilitiesTotal + equityTotal)) < 0.01,
   };
 }

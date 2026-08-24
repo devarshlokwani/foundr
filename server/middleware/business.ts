@@ -14,7 +14,7 @@ declare global {
 /**
  * Express middleware: every ledger route needs a `?businessId=` query
  * param naming which of the founder's businesses this request is for, and
- * that business has to actually belong to them — not just filter reads by
+ * that business has to actually belong to them: not just filter reads by
  * it, but confirm ownership before any read or write touches ledger data.
  * Mount after `requireUser`. On success, `req.businessId` is set.
  */

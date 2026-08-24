@@ -283,7 +283,7 @@ export class FoundrLanding extends LitElement {
   }
 
   // Intercept in-page nav links. Targets live in the shadow DOM, so native
-  // hash navigation can't reach them — we scroll manually via Lenis and
+  // hash navigation can't reach them, so we scroll manually via Lenis and
   // still update the URL hash for shareable links / back button.
   private _navClick(e: Event, hash: string): void {
     e.preventDefault();
@@ -294,14 +294,14 @@ export class FoundrLanding extends LitElement {
     }
   }
 
-  // Auth hooks — the entry point wires these to /sign-up and /sign-in.
+  // Auth hooks: the entry point wires these to /sign-up and /sign-in.
   private _getStarted(): void {
     this.dispatchEvent(new CustomEvent("get-started", { bubbles: true, composed: true }));
   }
   private _signIn(): void {
     this.dispatchEvent(new CustomEvent("sign-in", { bubbles: true, composed: true }));
   }
-  // Paid plans aren't built yet — set honest expectations instead of
+  // Paid plans aren't built yet, so set honest expectations instead of
   // sending someone to sign up for something that doesn't exist.
   private _onPlanClick(plan: Plan): void {
     if (plan.featured) this.comingSoonOpen = true;
@@ -320,7 +320,7 @@ export class FoundrLanding extends LitElement {
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Tabler icon rules — needed inside the shadow root since global CSS
+    /* Tabler icon rules, needed inside the shadow root since global CSS
        can't cross the shadow boundary. The @font-face itself is loaded
        globally (bundled via main.ts); these map the .ti classes to glyphs. */
     .ti {

@@ -1,5 +1,5 @@
 :root {
-  /* Palette — drawn from the reference dashboard */
+  /* Palette, drawn from the reference dashboard */
   --bg: #ECEAE3;
   --surface: #FAFAF7;
   --surface-alt: #F2EFE8;
@@ -13,7 +13,7 @@
   --danger: #D9534F;
   --positive: #4F8A6B;
 
-  /* Secondary semantic tokens — used by error states, inputs, charts, badges */
+  /* Secondary semantic tokens, used by error states, inputs, charts, badges */
   --input-bg: #FFFFFF;
   --danger-bg: #FBEAE9;
   --danger-border: #F0C5C3;
@@ -37,7 +37,7 @@
 }
 
 /*
- * App themes — scoped to the signed-in app shell (dashboard, transactions,
+ * App themes, scoped to the signed-in app shell (dashboard, transactions,
  * margins, settings) via [data-theme] on <html>. The public landing/auth
  * pages never set this attribute, so they always render the tokens above.
  */

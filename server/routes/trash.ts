@@ -4,7 +4,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { fetchTrashedEntries, parseEntriesQuery } from "../lib/entries.js";
 
 /**
- * Trash — everything soft-deleted across the 4 ledger collections for one
+ * Trash: everything soft-deleted across the 4 ledger collections for one
  * business, with the exact same search/kind/date-range/pagination support
  * as /api/entries (same parseEntriesQuery), so the Deleted view in the
  * frontend can be a true one-to-one clone of the Active view rather than a
@@ -12,7 +12,7 @@ import { fetchTrashedEntries, parseEntriesQuery } from "../lib/entries.js";
  *
  * Restoring or permanently deleting an item goes through that item's own
  * collection route (e.g. POST /api/transactions/:id/restore), the same
- * way edit/delete already route by `source` in the frontend — this route
+ * way edit/delete already route by `source` in the frontend. This route
  * only lists.
  *
  * Routes:

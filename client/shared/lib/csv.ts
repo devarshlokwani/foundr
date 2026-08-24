@@ -1,5 +1,5 @@
 /**
- * Client-side CSV generation and download — no server round trip, no
+ * Client-side CSV generation and download: no server round trip, no
  * dependency. Used by the margins page to export the report the user is
  * already looking at.
  */

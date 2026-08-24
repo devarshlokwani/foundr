@@ -4,13 +4,13 @@ import { BusinessModel } from "../models/Business.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 
 /**
- * Settings API — the founder's per-user preferences.
+ * Settings API: the founder's per-user preferences.
  *
  * GET returns the user's settings, creating a default record on first
  * access. PATCH updates them. Scoped to the signed-in user. Name/email are
  * Clerk identity fields and never live here; gender is a Foundr-specific
  * profile fact that does. Currency and business name are per-business, not
- * per-user — see /api/businesses instead.
+ * per-user; see /api/businesses instead.
  *
  * Routes:
  *   GET   /api/settings

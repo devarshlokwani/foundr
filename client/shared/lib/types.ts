@@ -41,7 +41,7 @@ export interface Faq {
 }
 
 /**
- * Shape of the response from GET /api/metrics — mirrors the server's
+ * Shape of the response from GET /api/metrics: mirrors the server's
  * computeMetrics output. Nullable fields are null when there isn't enough
  * data yet (e.g. ROI needs investment, margin needs income).
  */
@@ -80,7 +80,7 @@ export interface CashPoint {
   cash: number;
 }
 
-/** One bucket's income and expense totals, not cumulative — for the trend and month-over-month charts. Same `key` shape as CashPoint. */
+/** One bucket's income and expense totals, not cumulative: for the trend and month-over-month charts. Same `key` shape as CashPoint. */
 export interface MonthlyPoint {
   key: string;
   income: number;
@@ -105,7 +105,7 @@ export interface UnifiedEntry {
   date: string;
 }
 
-/** One page of GET /api/entries — search/filter/pagination-aware. */
+/** One page of GET /api/entries, search/filter/pagination-aware. */
 export interface EntriesPage {
   items: UnifiedEntry[];
   total: number;
@@ -138,7 +138,7 @@ export interface ActivityPage {
 
 /**
  * Per-user settings, from /api/settings. Currency and the business's
- * display name live on Business instead — see below — since those are
+ * display name live on Business instead (see below), since those are
  * per-startup facts, not account-wide ones.
  */
 export interface UserSettings {
@@ -153,7 +153,7 @@ export interface UserSettings {
  * One of a founder's businesses/startups, from /api/businesses. Every
  * ledger entry (Expense, Investment, Draw, Debt, Category, Milestone)
  * belongs to exactly one of these, so each gets its own isolated
- * dashboard — a founder running several side hustles never sees one
+ * dashboard: a founder running several side hustles never sees one
  * startup's numbers bleed into another's. `currency` is per-business too:
  * one startup can track in INR while another tracks in AUD.
  */
@@ -166,7 +166,7 @@ export interface Business {
 }
 
 /**
- * Response from GET /api/reports/margins — revenue by category, expenses
+ * Response from GET /api/reports/margins: revenue by category, expenses
  * by category, and the full metric summary.
  */
 export interface MarginsReport {
@@ -177,7 +177,7 @@ export interface MarginsReport {
 
 /**
  * Response from GET /api/reports/balance-sheet. Assets always equals
- * Liabilities + Equity — see server/lib/balanceSheet.ts for the identity.
+ * Liabilities + Equity; see server/lib/balanceSheet.ts for the identity.
  */
 export interface BalanceSheet {
   assets: { cash: number; fixedAssets: number; total: number };
@@ -188,7 +188,7 @@ export interface BalanceSheet {
 
 /**
  * An expense/revenue rule that materializes into a real entry on a
- * schedule — see server/lib/recurring.ts. From /api/recurring.
+ * schedule; see server/lib/recurring.ts. From /api/recurring.
  */
 export interface RecurringRule {
   _id: string;

@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit";
 import { WaitlistModel } from "./models/Waitlist.js";
 
 /**
- * Foundr waitlist server — tiny standalone API for the pre-launch landing
+ * Foundr waitlist server: tiny standalone API for the pre-launch landing
  * page. No auth, no Clerk, just email capture.
  */
 

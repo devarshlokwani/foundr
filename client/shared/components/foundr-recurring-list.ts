@@ -15,7 +15,7 @@ const FREQUENCY_LABELS: Record<RecurringRule["frequency"], string> = {
  * <foundr-recurring-list>
  * Self-contained recurring-rule manager: fetches its own rules for
  * `businessId`, pause/resume/delete. Used both in Settings and in All
- * Entries' "Recurring" tab — a shared component (not duplicated state +
+ * Entries' "Recurring" tab: a shared component (not duplicated state +
  * markup in each page) so the two stay identical and in sync by
  * construction rather than by discipline.
  */

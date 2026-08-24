@@ -12,7 +12,7 @@ interface StepMeta {
 }
 
 const STEPS: StepMeta[] = [
-  { title: "The rulebook", short: "Rulebook", icon: "ti-book-2", desc: "Foundr's data shape — what every field means." },
+  { title: "The rulebook", short: "Rulebook", icon: "ti-book-2", desc: "Foundr's data shape: what every field means." },
   { title: "Get the AI prompt", short: "AI prompt", icon: "ti-message-2-code", desc: "A ready-made prompt that reshapes your old data for you." },
   { title: "Reshape your data", short: "Reshape", icon: "ti-wand", desc: "Run the prompt in any LLM with your exported data." },
   { title: "Upload & import", short: "Import", icon: "ti-upload", desc: "Upload the result and bring it into Foundr." },
@@ -30,11 +30,11 @@ const EXAMPLE_ROWS: ImportRow[] = [
 function buildPrompt(): string {
   return `You are a data-migration assistant. I'm going to give you exported financial data from my old tool, and I need you to convert it into a specific JSON format so I can import it into Foundr, a finance tracker for solo founders.
 
-Output ONLY a raw JSON array — no markdown code fences, no explanation, no commentary before or after. Just the JSON array itself, starting with [ and ending with ].
+Output ONLY a raw JSON array. No markdown code fences, no explanation, no commentary before or after. Just the JSON array itself, starting with [ and ending with ].
 
 Each item in the array must be an object with exactly these fields:
 
-- "kind" (REQUIRED): one of "expense", "revenue", "investment", "draw", "debt", "repayment" — exactly one of these six strings, nothing else
+- "kind" (REQUIRED): one of "expense", "revenue", "investment", "draw", "debt", "repayment": exactly one of these six strings, nothing else
   - "expense" = money spent running the business
   - "revenue" = money earned from customers/sales
   - "investment" = money the founder put into the business
@@ -44,12 +44,12 @@ Each item in the array must be an object with exactly these fields:
 - "amount" (REQUIRED): a positive number greater than zero, no currency symbols or commas (e.g. 1200.50, not "$1,200.50")
 - "label" (REQUIRED): a short non-empty string. For "expense"/"revenue"/"draw" this is the category (e.g. "Software", "Consulting", "Personal"). For "investment"/"debt"/"repayment" this is the source (e.g. "Personal savings", "Bank loan").
 - "date" (REQUIRED): an ISO date string, e.g. "2026-01-15"
-- "note" (optional): a short string — use "" if there's nothing to put here, never omit the field entirely
+- "note" (optional): a short string, use "" if there's nothing to put here, never omit the field entirely
 
-A record is only skipped if one of the four REQUIRED fields is truly missing or invalid — so:
+A record is only skipped if one of the four REQUIRED fields is truly missing or invalid, so:
 - If you can't find a date for a record, use your best guess (e.g. the nearest date you do have, or today's date) rather than leaving it out.
 - If a record is missing a category/source, use a reasonable label like "Uncategorized" or "Other" rather than dropping the record.
-- Never invent a "kind" or "amount" — if either of those two is truly unknowable for a record, it's fine to leave that one record out (everything else you produce will still import).
+- Never invent a "kind" or "amount": if either of those two is truly unknowable for a record, it's fine to leave that one record out (everything else you produce will still import).
 
 Example of the exact output shape:
 [
@@ -57,7 +57,7 @@ Example of the exact output shape:
   {"kind": "revenue", "amount": 2500, "label": "Consulting", "note": "", "date": "2026-01-10"}
 ]
 
-Now here is my exported data — convert every record you can into this format. If something doesn't map cleanly, use your best judgment and keep going; don't skip silently or ask me questions, just produce the best JSON array you can from what I give you:
+Now here is my exported data. Convert every record you can into this format. If something doesn't map cleanly, use your best judgment and keep going; don't skip silently or ask me questions, just produce the best JSON array you can from what I give you:
 
 <PASTE YOUR EXPORTED DATA HERE>`;
 }
@@ -67,11 +67,11 @@ Now here is my exported data — convert every record you can into this format. 
  * Self-contained bulk-import wizard: rulebook, a copy-pasteable LLM prompt
  * that reshapes a founder's old data into Foundr's schema, and a file
  * upload (JSON or CSV) that previews then submits the parsed rows to
- * POST /api/import. Client only parses JSON.parse / Papa.parse — actual
+ * POST /api/import. Client only parses JSON.parse / Papa.parse; actual
  * validation and persistence is server-side (see server/lib/import.ts),
  * so this component never has to duplicate those rules.
  *
- * True binary .xlsx isn't supported — the only npm package that parses it
+ * True binary .xlsx isn't supported: the only npm package that parses it
  * (xlsx/SheetJS) has unpatched prototype-pollution and ReDoS vulnerabilities
  * with no fix on the registry, and this route parses untrusted uploads.
  * CSV covers the same "Excel file" use case without that risk.
@@ -109,7 +109,7 @@ export class FoundrImportPanel extends LitElement {
       this.copied = true;
       setTimeout(() => { this.copied = false; }, 2000);
     } catch {
-      this.parseError = "Couldn't copy automatically — select the text and copy it manually.";
+      this.parseError = "Couldn't copy automatically. Select the text and copy it manually.";
     }
   }
 
@@ -379,7 +379,7 @@ export class FoundrImportPanel extends LitElement {
                 <thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead>
                 <tbody>
                   <tr><td><code>kind</code></td><td>Yes</td><td>One of <code>expense</code>, <code>revenue</code>, <code>investment</code>, <code>draw</code>, <code>debt</code>, <code>repayment</code>.</td></tr>
-                  <tr><td><code>amount</code></td><td>Yes</td><td>Positive number — no currency symbols or commas.</td></tr>
+                  <tr><td><code>amount</code></td><td>Yes</td><td>Positive number, no currency symbols or commas.</td></tr>
                   <tr><td><code>label</code></td><td>Yes</td><td>Category for expense/revenue/draw (e.g. "Software"), or source for investment/debt/repayment (e.g. "Bank loan").</td></tr>
                   <tr><td><code>date</code></td><td>Yes</td><td>ISO date, e.g. <code>2026-01-15</code>.</td></tr>
                   <tr><td><code>note</code></td><td>No</td><td>Can be left as an empty string.</td></tr>
@@ -388,7 +388,7 @@ export class FoundrImportPanel extends LitElement {
             </div>
             <div class="privacy-note">
               <i class="ti ti-alert-triangle" aria-hidden="true"></i>
-              <span>Import is per-row — a few rows missing required fields won't block the rest. Anything that doesn't fit is skipped with a reason, everything else still comes in.</span>
+              <span>Import is per-row. A few rows missing required fields won't block the rest. Anything that doesn't fit is skipped with a reason, everything else still comes in.</span>
             </div>
             <div class="template-row">
               <button class="btn-ghost" @click=${this._downloadJsonTemplate}><i class="ti ti-download" aria-hidden="true"></i>Download JSON template</button>
@@ -410,7 +410,7 @@ export class FoundrImportPanel extends LitElement {
             </div>
             <div class="privacy-note">
               <i class="ti ti-lock" aria-hidden="true"></i>
-              <span>Pasting your financial data into a third-party LLM sends it to whichever tool you use — use one you trust, and check its data-retention policy if that matters for your business.</span>
+              <span>Pasting your financial data into a third-party LLM sends it to whichever tool you use. Use one you trust, and check its data-retention policy if that matters for your business.</span>
             </div>
           </div>
         `;
@@ -421,10 +421,10 @@ export class FoundrImportPanel extends LitElement {
           <p class="lede">A few minutes in any chat window turns your old export into something Foundr can read.</p>
           <div class="panel-body">
             <ol class="steps-list">
-              <li><strong>Export your existing data</strong>Get it out of your old tool as CSV, a spreadsheet export, or even a rough copy-paste — the LLM will make sense of it.</li>
+              <li><strong>Export your existing data</strong>Get it out of your old tool as CSV, a spreadsheet export, or even a rough copy-paste. The LLM will make sense of it.</li>
               <li><strong>Paste the prompt, then your data</strong>Open a new chat with any LLM, paste the prompt from Step 2, then paste your exported data right after it in the same message.</li>
-              <li><strong>Save the response as a file</strong>The reply should be a raw JSON array. Save it as a <code>.json</code> file (any text editor works — just make sure the extension is <code>.json</code>).</li>
-              <li><strong>If it added extra text</strong>Some models add a sentence before/after the array despite instructions — just delete anything that isn't between the outer <code>[</code> and <code>]</code>.</li>
+              <li><strong>Save the response as a file</strong>The reply should be a raw JSON array. Save it as a <code>.json</code> file (any text editor works, just make sure the extension is <code>.json</code>).</li>
+              <li><strong>If it added extra text</strong>Some models add a sentence before/after the array despite instructions, just delete anything that isn't between the outer <code>[</code> and <code>]</code>.</li>
             </ol>
           </div>
         `;

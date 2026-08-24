@@ -4,7 +4,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { validateImportRows, importRows, MAX_IMPORT_ROWS } from "../lib/import.js";
 
 /**
- * Bulk import — see lib/import.ts for the row schema and validation.
+ * Bulk import: see lib/import.ts for the row schema and validation.
  * The frontend does the file reading/parsing (JSON or CSV) client-side and
  * sends the already-parsed row objects here; this route only validates and
  * persists them.
@@ -25,7 +25,7 @@ router.post("/", async (req: Request, res: Response) => {
   const { valid, errors } = validateImportRows(rows);
 
   if (valid.length > MAX_IMPORT_ROWS) {
-    return res.status(400).json({ error: `Import is capped at ${MAX_IMPORT_ROWS} rows at a time — split it into batches.` });
+    return res.status(400).json({ error: `Import is capped at ${MAX_IMPORT_ROWS} rows at a time. Split it into batches.` });
   }
   if (valid.length === 0 && errors.length === 0) {
     return res.status(400).json({ error: "No rows to import." });

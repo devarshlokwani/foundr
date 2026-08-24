@@ -5,7 +5,7 @@ import { materializeDueRules } from "../lib/recurring.js";
 import { fetchUnifiedEntries, parseEntriesQuery } from "../lib/entries.js";
 
 /**
- * Entries API — a unified, read-only, searchable/filterable/paginated
+ * Entries API: a unified, read-only, searchable/filterable/paginated
  * timeline of everything the founder has recorded for one business:
  * expenses, revenue, investments, draws, and debt, merged and sorted by
  * date (newest first). See lib/entries.ts for the merge/filter/paginate

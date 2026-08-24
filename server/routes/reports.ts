@@ -11,7 +11,7 @@ import { computeBalanceSheet } from "../lib/balanceSheet.js";
 import { parseRangeQuery } from "../lib/dateRange.js";
 
 /**
- * Business reports — margins (a cash-basis income breakdown: revenue by
+ * Business reports: margins (a cash-basis income breakdown: revenue by
  * category, expenses by category, net margin) and the balance sheet
  * (Assets = Liabilities + Equity, made possible by Draws and Debt), for
  * one business. Both exported as CSV by the frontend.
@@ -19,7 +19,7 @@ import { parseRangeQuery } from "../lib/dateRange.js";
  * Routes:
  *   GET /api/reports/margins?businessId=&rangeStart=&rangeEnd=  revenue and
  *     expense breakdowns are scoped to the range if given; balance sheet
- *     never accepts a range — it's always a live, all-time snapshot.
+ *     never accepts a range: it's always a live, all-time snapshot.
  *   GET /api/reports/balance-sheet?businessId=
  */
 const router = Router();

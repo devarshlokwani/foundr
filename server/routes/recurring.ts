@@ -5,7 +5,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Recurring rules API — expense/revenue entries a founder wants added
+ * Recurring rules API: expense/revenue entries a founder wants added
  * automatically on a schedule (weekly, monthly, yearly), instead of
  * re-typing them every period. Materialization into real entries happens
  * lazily elsewhere (see lib/recurring.ts); this is just CRUD on the rules.
@@ -60,7 +60,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   void logActivity({
     userId, businessId: businessId!, action: "create", entityType: "recurring", entityId: String(created._id),
-    summary: `Added recurring ${created.kind} — ${created.category} (${created.frequency})`,
+    summary: `Added recurring ${created.kind}: ${created.category} (${created.frequency})`,
   });
   res.status(201).json(created);
 });
@@ -116,8 +116,8 @@ router.patch("/:id", async (req: Request, res: Response) => {
   if (!updated) return res.status(404).json({ error: "Recurring rule not found." });
 
   const summary = Object.keys(update).length === 1 && "active" in update
-    ? `${updated.active ? "Resumed" : "Paused"} recurring ${updated.kind} — ${updated.category}`
-    : `Updated recurring ${updated.kind} — ${updated.category}`;
+    ? `${updated.active ? "Resumed" : "Paused"} recurring ${updated.kind}: ${updated.category}`
+    : `Updated recurring ${updated.kind}: ${updated.category}`;
   void logActivity({
     userId, businessId: businessId!, action: "update", entityType: "recurring", entityId: String(updated._id),
     summary,
@@ -133,7 +133,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId, businessId: businessId!, action: "delete", entityType: "recurring", entityId: String(deleted._id),
-    summary: `Deleted recurring ${deleted.kind} — ${deleted.category}`,
+    summary: `Deleted recurring ${deleted.kind}: ${deleted.category}`,
   });
   res.json({ ok: true });
 });

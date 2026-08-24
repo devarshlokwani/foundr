@@ -105,7 +105,7 @@ export class FoundrInsights extends LitElement {
     .bar-track { height: 10px; background: var(--sage-soft, #DDE7E0); border-radius: 999px; overflow: hidden; cursor: default; }
     .bar-fill { height: 100%; background: var(--forest, #2D4A3E); border-radius: 999px; transition: width 0.5s ease; }
 
-    /* Hover tooltip on a bar row — pure CSS reveal, shows exact amount and
+    /* Hover tooltip on a bar row: pure CSS reveal, shows exact amount and
        share of the total, which the always-visible label doesn't. */
     .bar-tooltip {
       position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);

@@ -14,7 +14,7 @@ export interface ActivityParams {
 
 /**
  * Records one activity-log entry. Awaited but never lets a logging
- * failure break the actual financial operation it's describing — the
+ * failure break the actual financial operation it's describing: the
  * mutation the caller just made already succeeded by the time this runs,
  * and a missed log line is far cheaper than a failed request.
  */

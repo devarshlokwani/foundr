@@ -7,7 +7,7 @@ gsap.registerPlugin(ScrollTrigger);
 /**
  * Animation foundation for Foundr.
  *
- * Lenis handles smooth scrolling. GSAP handles everything else — reveals,
+ * Lenis handles smooth scrolling. GSAP handles everything else: reveals,
  * hovers. The two must be synced: Lenis drives the scroll position and we
  * tell ScrollTrigger to update on each Lenis frame, otherwise scroll-reveal
  * triggers fire at the wrong place.

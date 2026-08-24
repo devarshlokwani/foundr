@@ -28,8 +28,8 @@ function todayStr(): string {
 
 /**
  * <foundr-recurring-form>
- * Modal for creating or editing a recurring expense/revenue rule directly
- * — not routed through the full 5-kind Add Entry modal, since investment/
+ * Modal for creating or editing a recurring expense/revenue rule directly,
+ * not routed through the full 5-kind Add Entry modal, since investment/
  * draw/debt don't support recurring and the extra tabs would just be
  * noise here. Pass `.editing=${rule}` to edit an existing rule in place,
  * or leave it null to create a new one.

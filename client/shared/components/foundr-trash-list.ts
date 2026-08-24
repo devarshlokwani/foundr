@@ -8,7 +8,7 @@ import { formatMoney } from "../lib/format";
  * <foundr-trash-list>
  * Self-contained trash manager: fetches soft-deleted entries for
  * `businessId`, restore/delete-forever. Used both in Settings and in All
- * Entries' "Deleted" tab — a shared component so the two stay identical
+ * Entries' "Deleted" tab: a shared component so the two stay identical
  * and in sync by construction, same reasoning as foundr-recurring-list.
  */
 @customElement("foundr-trash-list")

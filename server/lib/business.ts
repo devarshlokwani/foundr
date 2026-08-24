@@ -8,7 +8,7 @@ import { MilestoneModel } from "../models/Milestone.js";
 
 /**
  * Ensures a founder has at least one Business, creating a default one and
- * backfilling any pre-multi-business ledger data into it. Idempotent — a
+ * backfilling any pre-multi-business ledger data into it. Idempotent: a
  * no-op for anyone who already has a business, which is everyone after
  * their first call. This is what lets `businessId` be a required field on
  * every ledger model without a separate, one-time migration script: the

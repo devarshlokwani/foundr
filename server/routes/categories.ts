@@ -5,7 +5,7 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Categories API — each founder's personalised category lists, per
+ * Categories API: each founder's personalised category lists, per
  * business. Scoped to the signed-in user and `?businessId=`.
  *
  * On the first GET for a business, if it has no categories yet, we seed a
@@ -64,7 +64,7 @@ router.post("/", async (req: Request, res: Response) => {
     const created = await CategoryModel.create({ userId, businessId, kind, name: name.trim() });
     void logActivity({
       userId, businessId: businessId!, action: "create", entityType: "category", entityId: String(created._id),
-      summary: `Added ${created.kind} category — ${created.name}`,
+      summary: `Added ${created.kind} category: ${created.name}`,
     });
     res.status(201).json(created);
   } catch (err) {
@@ -84,7 +84,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId, businessId: businessId!, action: "delete", entityType: "category", entityId: String(deleted._id),
-    summary: `Deleted ${deleted.kind} category — ${deleted.name}`,
+    summary: `Deleted ${deleted.kind} category: ${deleted.name}`,
   });
   res.json({ ok: true });
 });

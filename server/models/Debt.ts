@@ -6,11 +6,11 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * outstanding balance is always derived (sum of "borrow" minus sum of
  * "repay"), never stored, so it can't drift out of sync with the ledger.
  *
- * This is the Liabilities side of the balance sheet — without it, a loan
+ * This is the Liabilities side of the balance sheet: without it, a loan
  * or credit card balance had nowhere honest to go (not an expense, not an
  * investment).
  *
- * `deletedAt` makes deletion recoverable — see Expense.ts for the full
+ * `deletedAt` makes deletion recoverable: see Expense.ts for the full
  * reasoning, identical here.
  */
 const debtSchema = new Schema(

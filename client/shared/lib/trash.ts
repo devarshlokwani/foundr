@@ -2,11 +2,11 @@ import { apiGet, apiPost, apiDelete } from "./api";
 import type { UnifiedEntry, TrashedEntry } from "./types";
 
 /**
- * Deleting an entry (see foundr-transactions.ts's _delete) is soft — the
+ * Deleting an entry (see foundr-transactions.ts's _delete) is soft: the
  * backend keeps the document with `deletedAt` set instead of removing it.
  * This is the shared client-side routing for the follow-up actions
  * (restore, permanently delete), used both by the "Undo" toast right
- * after a delete and by the dedicated Trash view — same `_path`-by-source
+ * after a delete and by the dedicated Trash view, same `_path`-by-source
  * routing pattern foundr-transactions.ts already uses for edit/delete.
  */
 

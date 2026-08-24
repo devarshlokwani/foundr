@@ -33,8 +33,8 @@ function todayStr(): string {
  * Modal for adding an Expense, Revenue, Investment, Draw, or Debt entry,
  * with the founder's own custom categories.
  *
- * - Five rigid top-level kinds (the money-flows the metrics — and the
- *   balance sheet — depend on), each with a one-line helper so the user
+ * - Five rigid top-level kinds (the money-flows the metrics and the
+ *   balance sheet depend on), each with a one-line helper so the user
  *   always knows what & why.
  * - Categories are fully personal: fetched per-user from /api/categories,
  *   and the user can add their own inline ("+ Add your own").
@@ -64,7 +64,7 @@ export class FoundrAddEntry extends LitElement {
   // Debt-only: which direction this entry moves the outstanding balance.
   @state() private debtDirection: DebtDirection = "borrow";
   // Expense/revenue-only: adds a recurring rule instead of (well, in
-  // addition to, via lazy materialization — see lib/recurring.ts) a
+  // addition to, via lazy materialization, see lib/recurring.ts) a
   // one-off entry, so the founder doesn't have to re-type it every period.
   @state() private recurring = false;
   @state() private frequency: Frequency = "monthly";
@@ -76,7 +76,7 @@ export class FoundrAddEntry extends LitElement {
 
   // One-line explanation shown under the tabs, so the jargon is always clear.
   private readonly helper: Record<EntryKind, string> = {
-    expense: "Money the business spends to operate — ads, tools, salaries.",
+    expense: "Money the business spends to operate: ads, tools, salaries.",
     revenue: "Money the business earns from customers.",
     investment: "Money you put in from your own pocket to fund the business.",
     draw: "Money you take out of the business for personal use.",
@@ -192,7 +192,7 @@ export class FoundrAddEntry extends LitElement {
           date: this.date,
         });
       } else if (this.recurring) {
-        // Creates the rule only — the first occurrence (and any others
+        // Creates the rule only; the first occurrence (and any others
         // that come due) appears next time entries/metrics are fetched,
         // via the same lazy materialization ensureDefaultBusiness uses.
         await createRecurringRule(this.businessId, {
@@ -416,7 +416,7 @@ export class FoundrAddEntry extends LitElement {
                   <label class="capital-check">
                     <input type="checkbox" .checked=${this.recurring}
                       @change=${(e: Event) => { this.recurring = (e.target as HTMLInputElement).checked; }} />
-                    <span>Make this recurring — add it again automatically on a schedule</span>
+                    <span>Make this recurring, add it again automatically on a schedule</span>
                   </label>
                   ${this.recurring
                     ? html`

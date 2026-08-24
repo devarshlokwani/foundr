@@ -33,13 +33,13 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100];
 /**
  * <foundr-transactions>
  * A full-page, unified, searchable/filterable/paginable table of every
- * entry — expenses, revenue, investments, draws, and debt — newest first.
+ * entry (expenses, revenue, investments, draws, and debt), newest first.
  * Supports inline editing (amount + note), single-row and bulk delete,
  * routing each change to the correct backend collection based on the
  * entry's `source`.
  *
  * Search and filters are server-side (see /api/entries and
- * server/lib/entries.ts) — this scales to however many entries a business
+ * server/lib/entries.ts); this scales to however many entries a business
  * accumulates, not just what fits comfortably in one unbounded DOM list.
  *
  * Auth-guarded like the dashboard. Reachable at /transactions.
@@ -59,7 +59,7 @@ export class FoundrTransactions extends LitElement {
   @state() private addEntryOpen = false;
   @state() private migrateOpen = false;
 
-  // Search — debounced, resets to page 1 on change.
+  // Search, debounced, resets to page 1 on change.
   @state() private search = "";
   private _searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
@@ -68,7 +68,7 @@ export class FoundrTransactions extends LitElement {
   @state() private dateFrom = "";
   @state() private dateTo = "";
 
-  // Filter drawer — a draft copy so Apply/Clear is explicit, not live-filtering per checkbox.
+  // Filter drawer: a draft copy so Apply/Clear is explicit, not live-filtering per checkbox.
   @state() private filterDrawerOpen = false;
   @state() private draftKinds: Kind[] = [];
   @state() private draftDateFrom = "";
@@ -79,17 +79,17 @@ export class FoundrTransactions extends LitElement {
   @state() private pageSize = 50;
   @state() private total = 0;
 
-  // "Undo" toast — deleting is soft now, so there's no confirm() dialog;
+  // "Undo" toast: deleting is soft now, so there's no confirm() dialog;
   // instead a brief window to reverse it right after.
   @state() private undoEntry: UnifiedEntry | null = null;
   private _undoTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Bulk selection — ids from the current page only (selection doesn't
+  // Bulk selection: ids from the current page only (selection doesn't
   // persist across a reload, since the set of rows it refers to changes).
   @state() private selectedIds: Set<string> = new Set();
   @state() private bulkBusy = false;
 
-  // Permanent-delete confirmation — "bulk" means the current selection,
+  // Permanent-delete confirmation: "bulk" means the current selection,
   // a UnifiedEntry means just that one row.
   @state() private permanentDeleteTarget: UnifiedEntry | "bulk" | null = null;
   @state() private deleteConfirmText = "";
@@ -285,7 +285,7 @@ export class FoundrTransactions extends LitElement {
     await this._load();
   }
 
-  /** Windowed page numbers with ellipsis spacers — first, last, current ± 1. */
+  /** Windowed page numbers with ellipsis spacers: first, last, current ± 1. */
   private _pageNumbers(): (number | "ellipsis")[] {
     const total = this.totalPages;
     const current = this.page;
@@ -351,7 +351,7 @@ export class FoundrTransactions extends LitElement {
   }
 
   private async _delete(e: UnifiedEntry): Promise<void> {
-    // Soft-delete, so no confirm() dialog — the "Undo" toast below is the
+    // Soft-delete, so no confirm() dialog. The "Undo" toast below is the
     // safety net instead of a modal the founder has to click through.
     this.busyId = e.id;
     try {
@@ -402,7 +402,7 @@ export class FoundrTransactions extends LitElement {
     }
   }
 
-  // Permanent delete skips confirm() — a single "OK" click is too easy to
+  // Permanent delete skips confirm(): a single "OK" click is too easy to
   // hit by accident for something that's gone for good, unlike the soft
   // deletes elsewhere on this page. Instead it opens a modal that only
   // enables its confirm button once the founder types DELETE.
@@ -575,7 +575,7 @@ export class FoundrTransactions extends LitElement {
 
     .card { background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px); padding: 22px; border: 0.5px solid var(--line, #E2DFD7); }
 
-    /* Table card — search/filter, bulk bar, table, footer, all one unit */
+    /* Table card: search/filter, bulk bar, table, footer, all one unit */
     .table-card {
       background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
       border: 0.5px solid var(--line, #E2DFD7); overflow: hidden;
@@ -657,7 +657,7 @@ export class FoundrTransactions extends LitElement {
     }
     .btn-clear:hover { background: rgba(45,74,62,0.05); }
 
-    /* Bulk-selection bar — appears above the table only once something's selected */
+    /* Bulk-selection bar: appears above the table only once something's selected */
     .bulk-bar {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       margin: 0 22px 14px; padding: 10px 14px; background: var(--sage-soft, #DDE7E0);
@@ -767,7 +767,7 @@ export class FoundrTransactions extends LitElement {
     }
     .undo-btn:hover { background: rgba(255,255,255,0.12); }
 
-    /* Permanent-delete confirmation — deliberately more friction than the
+    /* Permanent-delete confirmation: deliberately more friction than the
        plain confirm() used for soft deletes elsewhere on this page, since
        this one is genuinely irreversible. */
     .confirm-overlay {
@@ -951,7 +951,7 @@ export class FoundrTransactions extends LitElement {
           ${isEditing
             ? html`<input class="cell-input" type="text" placeholder="Note" .value=${this.editNote}
                 @input=${(ev: Event) => { this.editNote = (ev.target as HTMLInputElement).value; }} />`
-            : e.note || html`<span class="muted">—</span>`}
+            : e.note || html`<span class="muted">-</span>`}
         </td>
         <td class="col-date">${this._date(e.date)}</td>
         <td class="col-amount ${outflow ? "outflow" : "inflow"}">
@@ -1027,7 +1027,7 @@ export class FoundrTransactions extends LitElement {
     `;
   }
 
-  // Shared by both Active and Deleted — same header, toolbar, search,
+  // Shared by both Active and Deleted: same header, toolbar, search,
   // filters, table columns, and footer; only the data source, row
   // actions, and empty-state copy differ by section, so the two feel
   // like one consistent UI rather than a full table next to a

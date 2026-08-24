@@ -5,9 +5,9 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Draws API — money the founder has taken out of one business.
+ * Draws API: money the founder has taken out of one business.
  * Scoped to the signed-in user and `?businessId=`, same as investments.
- * Deletion is soft — see routes/transactions.ts's doc comment for the
+ * Deletion is soft; see routes/transactions.ts's doc comment for the
  * full reasoning, identical here.
  *
  * Routes:
@@ -53,7 +53,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "create", entityType: "draw", entityId: String(created._id),
-    summary: `Added ${created.amount} draw — ${created.category}`,
+    summary: `Added ${created.amount} draw: ${created.category}`,
   });
   res.status(201).json(created);
 });
@@ -83,7 +83,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "update", entityType: "draw", entityId: String(updated._id),
-    summary: `Updated draw — ${updated.category}`,
+    summary: `Updated draw: ${updated.category}`,
   });
   res.json(updated);
 });
@@ -100,7 +100,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "delete", entityType: "draw", entityId: String(deleted._id),
-    summary: `Deleted ${deleted.amount} draw — ${deleted.category}`,
+    summary: `Deleted ${deleted.amount} draw: ${deleted.category}`,
   });
   res.json({ ok: true });
 });
@@ -117,7 +117,7 @@ router.post("/:id/restore", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "restore", entityType: "draw", entityId: String(restored._id),
-    summary: `Restored draw — ${restored.category}`,
+    summary: `Restored draw: ${restored.category}`,
   });
   res.json(restored);
 });

@@ -11,7 +11,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * entries. `type` distinguishes money going out (expense) from money
  * coming in (income), which is what lets us compute net position and ROI.
  *
- * `isCapital` marks an expense as a capital purchase — equipment or a tool
+ * `isCapital` marks an expense as a capital purchase: equipment or a tool
  * the business keeps, rather than a consumed operating cost. It still
  * counts as cash out, but on the balance sheet it becomes a Fixed Asset
  * instead of reducing retained earnings. Defaults false so it never

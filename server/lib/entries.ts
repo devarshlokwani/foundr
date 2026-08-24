@@ -18,7 +18,7 @@ export interface UnifiedEntry {
   date: string;
 }
 
-/** A UnifiedEntry currently in the trash — same shape, plus when it was deleted. */
+/** A UnifiedEntry currently in the trash: same shape, plus when it was deleted. */
 export interface TrashedEntry extends UnifiedEntry {
   deletedAt: string;
 }
@@ -45,7 +45,7 @@ export interface TrashResult {
   total: number;
 }
 
-/** Case-insensitive substring match across the given fields — user input is escaped so it can never be read as regex syntax. */
+/** Case-insensitive substring match across the given fields. User input is escaped so it can never be read as regex syntax. */
 function searchFilter(search: string, fields: string[]): Record<string, unknown> {
   if (!search) return {};
   const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -76,7 +76,7 @@ function parseDate(value: unknown): Date | null {
 }
 
 /**
- * Shared query-string parsing for both /api/entries and /api/trash — they
+ * Shared query-string parsing for both /api/entries and /api/trash: they
  * accept identical filter params, so this lives once here rather than
  * being duplicated per route.
  */
@@ -104,7 +104,7 @@ interface RawDocs {
 }
 
 /**
- * Shared query logic for both the active entries list and the trash view —
+ * Shared query logic for both the active entries list and the trash view:
  * identical filtering (search/kinds/date range), differing only in which
  * side of `deletedAt` they read. Filters are pushed into each collection's
  * own Mongo query (including skipping a collection's query entirely when
@@ -202,7 +202,7 @@ function toUnified(docs: RawDocs): UnifiedEntry[] {
 /**
  * Fetches, filters, merges, sorts, and paginates a founder's active
  * entries across all 4 ledger collections. Merging, sorting, and paging
- * happen in memory after the (already filtered, so bounded) fetch — the
+ * happen in memory after the (already filtered, so bounded) fetch. It's the
  * right tradeoff at solo-founder scale (hundreds to low thousands of
  * small documents) versus migrating every entry kind into one collection
  * just to get DB-level `.skip().limit()`.
@@ -219,7 +219,7 @@ export async function fetchUnifiedEntries(userId: string, businessId: string, qu
 }
 
 /**
- * The trash view — everything soft-deleted, with the exact same
+ * The trash view: everything soft-deleted, with the exact same
  * search/kind/date-range/pagination support as the active list, so the
  * two feel like one consistent UI rather than a stripped-down afterthought.
  */

@@ -14,10 +14,10 @@ function advance(date: Date, frequency: Frequency): Date {
 /**
  * Materializes any due RecurringRules into real Expense/income entries.
  *
- * Lazy — no cron job or scheduler process, matching the existing
+ * Lazy: no cron job or scheduler process, matching the existing
  * ensureDefaultBusiness() backfill precedent in lib/business.ts. Called at
  * the top of the routes a founder actually looks at (GET /api/entries,
- * GET /api/metrics), so a rule just shows up next time they check —
+ * GET /api/metrics), so a rule just shows up next time they check,
  * catching up on every period missed since nextRunDate if they haven't
  * opened the app in a while, rather than only creating one entry.
  */

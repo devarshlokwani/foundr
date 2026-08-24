@@ -1,10 +1,10 @@
 /**
  * Bucket-size control for the dashboard's and Margins Trends tab's
  * time-series line charts (cash-over-time, revenue-vs-expense). Independent
- * of dateRange.ts's range presets — this controls how *finely* a chart is
+ * of dateRange.ts's range presets: this controls how *finely* a chart is
  * bucketed, not which window of time it covers.
  *
- * One shared preference cached in localStorage (same pattern as theme.ts) —
+ * One shared preference cached in localStorage (same pattern as theme.ts);
  * "how granular I like my charts" is one account-wide preference, reused
  * by both pickers rather than tracked separately per chart.
  */

@@ -3,14 +3,14 @@ import { customElement, state } from "lit/decorators.js";
 
 /**
  * <foundr-page-actions>
- * The single "Actions" entry point for things a founder does across pages
- * — adding an entry, migrating old data in. Lives in the topbar's actions
+ * The single "Actions" entry point for things a founder does across pages,
+ * adding an entry, migrating old data in. Lives in the topbar's actions
  * slot on Dashboard and All Entries only (Margins is for reading reports,
- * Settings has its own controls, so neither page mounts this) — one
+ * Settings has its own controls, so neither page mounts this): one
  * consistent control in one consistent spot, instead of separate buttons
  * that appear/disappear differently as you move between pages.
  *
- * Doesn't own any modal itself — clicking an item dispatches a bubbling,
+ * Doesn't own any modal itself: clicking an item dispatches a bubbling,
  * composed event (`open-add-entry` / `open-migrate`) so whichever page
  * mounted this decides what opens, same click-outside-to-close pattern as
  * foundr-profile-menu.

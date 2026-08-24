@@ -25,7 +25,7 @@ const CARDS: CardMeta[] = [
   { title: "Welcome", desc: "What Foundr does for you.", icon: "ti-sparkles" },
   { title: "Your name", desc: "So we know what to call you.", icon: "ti-user" },
   { title: "Your business", desc: "The startup you're tracking.", icon: "ti-building-store" },
-  { title: "About you", desc: "Optional — helps us tailor Foundr.", icon: "ti-user-circle" },
+  { title: "About you", desc: "Optional, helps us tailor Foundr.", icon: "ti-user-circle" },
   { title: "Security", desc: "Keep your account recoverable.", icon: "ti-shield-lock" },
   { title: "All set", desc: "Your dashboard is ready.", icon: "ti-rocket" },
 ];
@@ -38,14 +38,14 @@ const CARD_COUNT = CARDS.length;
  * signing up and never again (gated by `UserSettings.onboarded`). Collects
  * their name, their first business's name, gender, and whether they want
  * a recovery email, then creates that first Business and hands off to the
- * dashboard — everything it collects writes straight into the same Clerk
+ * dashboard. Everything it collects writes straight into the same Clerk
  * fields / UserSettings / Business records Settings itself reads, so
  * there's no separate store to keep in sync.
  *
  * Layout mirrors the Migrate wizard (see foundr-import-panel.ts): a left
  * rail of numbered steps with a progress connector line, a right panel
  * with "STEP X OF N" + content. Rail steps are only reachable up to
- * `furthest` (the deepest card the founder has actually validated into) —
+ * `furthest` (the deepest card the founder has actually validated into),
  * unlike Migrate, onboarding has required fields partway through, so free
  * jumping would let someone reach the final "create my business" step
  * with an empty name or business name.
@@ -53,21 +53,21 @@ const CARD_COUNT = CARDS.length;
  * Step transitions use the same GSAP easing language as the landing
  * page's #features deck (power2.out slide) rather than an instant swap.
  * The header uses the plain static Foundr brand mark (same square-F badge
- * as the topbar) — an earlier animated illustration here read as noisy
+ * as the topbar); an earlier animated illustration here read as noisy
  * rather than polished, so it's gone.
  *
- * Two-factor authentication isn't offered here — it needs a paid Clerk
+ * Two-factor authentication isn't offered here: it needs a paid Clerk
  * plan Foundr isn't on yet, so Settings → Security marks it "coming soon"
  * rather than exposing a setup flow that would fail.
  *
  * The recovery-email step runs the real add-email + verify-code flow
  * inline (same `addSecondaryEmail`/`verifySecondaryEmail` calls Settings →
  * Security uses) instead of just recording a "yes" and redirecting to
- * Settings afterward — asking for the address on a step that says
+ * Settings afterward: asking for the address on a step that says
  * "add a recovery email" and then bouncing to a different screen to
  * actually type it in was confusing. Because it's the same underlying
- * Clerk email record, Settings shows it automatically next time it loads
- * — no separate syncing needed.
+ * Clerk email record, Settings shows it automatically next time it loads,
+ * no separate syncing needed.
  *
  * Dispatches `onboarding-done` with `{ businessId }` once finished.
  */
@@ -83,7 +83,7 @@ export class FoundrOnboarding extends LitElement {
   @state() private animating = false;
   @state() private error = "";
 
-  // Recovery email — inline add + verify, mirroring Settings → Security.
+  // Recovery email, inline add + verify, mirroring Settings → Security.
   @state() private newEmail = "";
   @state() private emailCode = "";
   @state() private pendingEmailId = "";
@@ -122,7 +122,7 @@ export class FoundrOnboarding extends LitElement {
     return true;
   }
 
-  // ---- Step transition motion — same power2.out slide/fade language as
+  // ---- Step transition motion: same power2.out slide/fade language as
   // the landing page's #features deck, adapted for a single panel instead
   // of a stacked card (see foundr-landing.ts's _nextFeature/_prevFeature).
 
@@ -197,7 +197,7 @@ export class FoundrOnboarding extends LitElement {
     void this._step(-1);
   }
 
-  // ---- Recovery email — same two-step add/verify Settings → Security
+  // ---- Recovery email: same two-step add/verify Settings → Security
   // uses, just asked for right here instead of deferring to another page.
 
   private async _addEmail(): Promise<void> {
@@ -422,7 +422,7 @@ export class FoundrOnboarding extends LitElement {
         return html`
           ${eyebrow}
           <h2>Let's set up your workspace</h2>
-          <p class="lede">Foundr turns the numbers you'd otherwise track on paper into a clear picture of your business — burn, runway, ROI, and margins, all in one place. Takes less than a minute.</p>
+          <p class="lede">Foundr turns the numbers you'd otherwise track on paper into a clear picture of your business: burn, runway, ROI, and margins, all in one place. Takes less than a minute.</p>
         `;
       case 1:
         return html`
@@ -448,7 +448,7 @@ export class FoundrOnboarding extends LitElement {
         return html`
           ${eyebrow}
           <h2>What's your business?</h2>
-          <p class="lede">The name of the startup or side hustle you're tracking — you can add more later.</p>
+          <p class="lede">The name of the startup or side hustle you're tracking. You can add more later.</p>
           <div class="fields">
             <div class="field">
               <label for="bizName">Business name</label>
@@ -461,7 +461,7 @@ export class FoundrOnboarding extends LitElement {
         return html`
           ${eyebrow}
           <h2>A little about you</h2>
-          <p class="lede">Totally optional — helps us tailor Foundr over time.</p>
+          <p class="lede">Totally optional, helps us tailor Foundr over time.</p>
           <div class="fields">
             <div class="field">
               <label for="gender">Gender</label>
@@ -476,7 +476,7 @@ export class FoundrOnboarding extends LitElement {
         return html`
           ${eyebrow}
           <h2>Keep your account safe</h2>
-          <p class="lede">Optional, but recommended — a backup way in if you ever lose access to your inbox. You can always add or change this later in Settings.</p>
+          <p class="lede">Optional, but recommended: a backup way in if you ever lose access to your inbox. You can always add or change this later in Settings.</p>
           <div class="email-card">
             ${this.emailAdded
               ? html`
@@ -526,7 +526,7 @@ export class FoundrOnboarding extends LitElement {
         return html`
           ${eyebrow}
           <h2>You're all set</h2>
-          <p class="lede final-body">We've created <strong>${this.businessName || "your business"}</strong> — your dashboard is ready the moment you continue.</p>
+          <p class="lede final-body">We've created <strong>${this.businessName || "your business"}</strong>. Your dashboard is ready the moment you continue.</p>
         `;
     }
   }
@@ -539,7 +539,7 @@ export class FoundrOnboarding extends LitElement {
           <div class="mark">F</div>
           <div>
             <h1>Hello, Founder!</h1>
-            <p>Welcome to Foundr — let's set up your workspace.</p>
+            <p>Welcome to Foundr. Let's set up your workspace.</p>
           </div>
         </div>
         <div class="wizard">

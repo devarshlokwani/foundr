@@ -4,10 +4,10 @@ import { DrawModel } from "../models/Draw.js";
 import { DebtModel } from "../models/Debt.js";
 
 /**
- * Bulk data import — lets a founder migrate existing records into Foundr
+ * Bulk data import: lets a founder migrate existing records into Foundr
  * instead of re-typing years of history one entry at a time. The accepted
  * shape is deliberately flat and uniform across all 5 entry kinds (see
- * ImportRow below) — "label" plays the role of `category` for
+ * ImportRow below): "label" plays the role of `category` for
  * expense/revenue/draw and `source` for investment/debt/repayment, so
  * founders (or an LLM reshaping their data for them) only ever need to
  * learn one shape, not four.
@@ -40,7 +40,7 @@ export const MAX_IMPORT_ROWS = 2000;
 
 /**
  * Validates a raw parsed array (from uploaded JSON or CSV) against the
- * import schema. Every row is checked independently — one bad row never
+ * import schema. Every row is checked independently: one bad row never
  * blocks the rest, it's just reported back so the founder can fix and
  * retry only what failed.
  */

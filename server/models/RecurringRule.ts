@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
 /**
- * A recurring expense or revenue rule — a founder's SaaS bill, a monthly
+ * A recurring expense or revenue rule: a founder's SaaS bill, a monthly
  * retainer, anything they'd otherwise have to re-type by hand every period.
  *
  * Scoped to expense/revenue only (not investments, draws, or debt) since

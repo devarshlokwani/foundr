@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
 /**
- * A record of a mutation a founder made — who changed what, when. Written
+ * A record of a mutation a founder made: who changed what, when. Written
  * by lib/activityLog.ts's logActivity(), called at the end of every
  * create/update/delete/restore across the ledger and config routes.
  * Read-only from the app's own perspective otherwise; nothing here is

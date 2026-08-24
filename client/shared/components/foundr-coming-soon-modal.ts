@@ -5,7 +5,7 @@ import { customElement, property } from "lit/decorators.js";
  * <foundr-coming-soon-modal ?open=${...} @close=${...}>
  * Shared "not built yet" messaging. Defaults to the "paid plan" copy used
  * from both the app (Settings → General's Upgrade button) and the
- * marketing site (the landing page's paid-plan CTA) — there's no billing
+ * marketing site (the landing page's paid-plan CTA). There's no billing
  * or plan-gating system yet, so this sets honest expectations instead of
  * pretending a purchase would work. Other not-yet-built affordances (like
  * the virtual tour launcher in Settings → Startups) override the text

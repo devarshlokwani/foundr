@@ -9,7 +9,7 @@ import { DebtModel } from "../models/Debt.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Businesses API — a founder's startups/side hustles. Every ledger entry
+ * Businesses API: a founder's startups/side hustles. Every ledger entry
  * belongs to exactly one of these, so each gets its own isolated
  * dashboard. GET is the entry point that also runs the one-time migration
  * for founders who existed before multi-business support did.
@@ -50,7 +50,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   void logActivity({
     userId, businessId: String(created._id), action: "create", entityType: "business", entityId: String(created._id),
-    summary: `Created startup — ${created.name}`,
+    summary: `Created startup: ${created.name}`,
   });
   res.status(201).json(created);
 });
@@ -87,7 +87,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId, businessId: String(updated._id), action: "update", entityType: "business", entityId: String(updated._id),
-    summary: `Updated startup — ${updated.name}`,
+    summary: `Updated startup: ${updated.name}`,
   });
   res.json(updated);
 });
@@ -108,14 +108,14 @@ router.delete("/:id", async (req: Request, res: Response) => {
     DebtModel.countDocuments({ userId, businessId, deletedAt: null }),
   ]);
   if (expenses + investments + draws + debts > 0) {
-    return res.status(409).json({ error: "This business still has tracked entries — remove them first." });
+    return res.status(409).json({ error: "This business still has tracked entries. Remove them first." });
   }
 
   await BusinessModel.deleteOne({ _id: businessId, userId });
 
   void logActivity({
     userId, businessId, action: "delete", entityType: "business", entityId: businessId,
-    summary: `Deleted startup — ${business.name}`,
+    summary: `Deleted startup: ${business.name}`,
   });
   res.json({ ok: true });
 });

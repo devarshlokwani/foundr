@@ -3,7 +3,7 @@ import { setCurrency, type CurrencyCode } from "./format";
 import type { Business } from "./types";
 
 /**
- * Which of a founder's businesses is currently active — cached in
+ * Which of a founder's businesses is currently active, cached in
  * localStorage for an instant read on page load (same pattern as
  * theme.ts), reconciled against the backend's `activeBusinessId` and the
  * real list of businesses every time a page initialises, since it can go
@@ -40,14 +40,14 @@ export async function renameBusiness(id: string, name: string): Promise<Business
   return apiPatch<Business>(`/businesses/${id}`, { name });
 }
 
-/** Updates a business's own display currency — a per-startup choice, not an account-wide one. */
+/** Updates a business's own display currency: a per-startup choice, not an account-wide one. */
 export async function setBusinessCurrency(id: string, currency: CurrencyCode): Promise<Business> {
   return apiPatch<Business>(`/businesses/${id}`, { currency });
 }
 
 /**
  * Deletes a business. The backend refuses (409) if it still has any
- * tracked expenses, investments, draws, or debts — a founder has to
+ * tracked expenses, investments, draws, or debts; a founder has to
  * empty it first, so this can never silently destroy real ledger data.
  */
 export async function deleteBusiness(id: string): Promise<void> {
@@ -77,10 +77,10 @@ export async function setActiveBusiness(id: string): Promise<void> {
  * the founder's businesses (this also runs the server-side migration for
  * pre-multi-business accounts, so it always returns at least one business
  * unless they're still mid-onboarding), then resolve which one is active
- * — preferring the local cache, falling back to the backend's pointer,
+ * preferring the local cache, falling back to the backend's pointer,
  * falling back to the first business if both are stale or unset.
  *
- * Also applies that business's own currency for the session — currency is
+ * Also applies that business's own currency for the session: currency is
  * per-startup, not per-account, so every page that switches businesses
  * needs to re-apply it here rather than reading a single global value.
  */

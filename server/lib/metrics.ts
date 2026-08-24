@@ -13,20 +13,20 @@
  * - Gross margin: profit as a share of revenue.
  *
  * totalDraws and netBorrowed (borrowed minus repaid) only affect
- * cashRemaining (and so runway) — deliberately not folded into burn,
+ * cashRemaining (and so runway), deliberately not folded into burn,
  * netPosition, ROI, or gross margin, so what "burn rate" has always meant
  * doesn't change now that draws and debt exist.
  *
  * Date range filtering (the optional `period` argument) only scopes the
- * *flow* figures — totalExpenses, totalIncome, monthlyBurn, grossMargin —
- * to the selected window. The *cumulative* figures — cashRemaining,
- * totalInvested, netPosition, personalRoi — always reflect the running
+ * *flow* figures (totalExpenses, totalIncome, monthlyBurn, grossMargin)
+ * to the selected window. The *cumulative* figures (cashRemaining,
+ * totalInvested, netPosition, personalRoi) always reflect the running
  * position as of the end of that window (or right now, with no period),
  * not just what moved during it: "what was my cash position at the end
  * of last month" is a meaningful question, "last month's isolated cash
  * movement" mostly isn't. `entries` (and the totalInvested/totalDraws/
  * netBorrowed the caller passes in) are expected to already be limited to
- * `date <= period.end` — this function only needs `period.start` to know
+ * `date <= period.end`; this function only needs `period.start` to know
  * where the flow window begins within that set.
  */
 
@@ -65,7 +65,7 @@ function monthsSpanned(dates: Date[]): number {
 /**
  * Compute all dashboard metrics from a founder's entries and investments.
  * `totalInvested`, `totalDraws`, and `netBorrowed` are passed in separately
- * since investments, draws, and debt each live in their own collection —
+ * since investments, draws, and debt each live in their own collection;
  * all three (and `entries`) should already be limited to `date <= period.end`
  * by the caller when a period is given. With no `period` (the default),
  * behaviour is exactly what it was before date ranges existed: every
@@ -78,7 +78,7 @@ export function computeMetrics(
   netBorrowed = 0,
   period: Period | null = null
 ): Metrics {
-  // Cumulative totals — from every entry the caller passed in (already
+  // Cumulative totals: from every entry the caller passed in (already
   // capped at the period's end, if any), regardless of the period's start.
   let allTotalExpenses = 0;
   let allTotalIncome = 0;
@@ -87,7 +87,7 @@ export function computeMetrics(
     else allTotalIncome += e.amount;
   }
 
-  // Flow totals — scoped to the period's start, if given.
+  // Flow totals: scoped to the period's start, if given.
   const periodEntries = period ? entries.filter((e) => new Date(e.date) >= period.start) : entries;
   let totalExpenses = 0;
   let totalIncome = 0;
@@ -101,7 +101,7 @@ export function computeMetrics(
     }
   }
 
-  // Average monthly burn = net cash out, spread over the period observed —
+  // Average monthly burn = net cash out, spread over the period observed:
   // the calendar span of the selected range itself when one's given (so
   // "this month" divides by ~1, not by however many days had entries),
   // otherwise the span between the earliest and latest expense, as before.
@@ -111,7 +111,7 @@ export function computeMetrics(
 
   // Cash remaining = what was put in, minus net spent, minus what the
   // founder drew out, plus what's currently borrowed (net of repayments).
-  // Cumulative — as of the period's end (or now), not scoped to its start.
+  // Cumulative: as of the period's end (or now), not scoped to its start.
   const cashRemaining = totalInvested + allTotalIncome - allTotalExpenses - totalDraws + netBorrowed;
 
   // Runway = months of cash left at current burn. Null if not burning.

@@ -11,7 +11,7 @@
  * - monthlySeries: per-bucket income/expense totals, not cumulative.
  *   Powers the Trends tab's revenue-vs-expense and month-over-month charts.
  *
- * Both series accept a `granularity` — "month" (the default, and the only
+ * Both series accept a `granularity`: "month" (the default, and the only
  * option before this existed), "biweekly" (a fixed 14-day window from the
  * earliest entry, not calendar-aligned), or "day". The bucket `key` is no
  * longer necessarily a month once granularity varies, which is why the
@@ -109,7 +109,7 @@ function buildBuckets(dates: Date[], granularity: Granularity): Bucket[] {
 
 /**
  * Which bucket a date falls into, computed directly (not by searching the
- * bucket list) — for day/biweekly this indexes off `anchor` (the earliest
+ * bucket list): for day/biweekly this indexes off `anchor` (the earliest
  * date across the same series buildBuckets was called with), so the two
  * stay in lockstep and every key matches one of buildBuckets' buckets.
  */
@@ -197,7 +197,7 @@ export function computeCashSeries(
 }
 
 /**
- * Per-bucket income and expense totals — unlike computeCashSeries, these
+ * Per-bucket income and expense totals. Unlike computeCashSeries, these
  * are kept separate and not netted into a running balance, so a revenue-
  * vs-expense trend chart and a month-over-month view can both read off
  * this one series instead of needing their own aggregation.
@@ -226,8 +226,8 @@ export function computeMonthlySeries(entries: InsightEntry[], granularity: Granu
 
 /**
  * `period`, when given, scopes categoryBreakdown and monthlySeries to that
- * window (both are flow figures — "what happened in this period"). The
- * running-balance cash chart deliberately stays all-time regardless — a
+ * window (both are flow figures: "what happened in this period"). The
+ * running-balance cash chart deliberately stays all-time regardless; a
  * balance chart needs full history to mean anything, same reasoning as
  * why the Balance Sheet report is never date-filtered. `granularity`
  * applies to both series independently of `period`.

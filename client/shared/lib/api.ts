@@ -5,7 +5,7 @@ import { getClerk } from "../../features/auth/auth.service";
  *
  * Every call attaches the current Clerk session token as a Bearer token,
  * which is what the server's clerkMiddleware reads to identify the founder.
- * Without this, the backend rejects the request with 401 — so all data
+ * Without this, the backend rejects the request with 401, so all data
  * calls must go through here, not raw fetch().
  *
  * Base path is /api, which Vite's dev proxy forwards to the Express server

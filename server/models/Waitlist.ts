@@ -1,7 +1,7 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
 /**
- * A Waitlist signup — someone who registered interest before launch.
+ * A Waitlist signup: someone who registered interest before launch.
  * Email is unique so the same person can't sign up twice.
  */
 const waitlistSchema = new Schema(

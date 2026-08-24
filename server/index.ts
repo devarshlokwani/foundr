@@ -1,5 +1,5 @@
 import "dotenv/config";
-// Must load before any router is defined — patches Express so a rejected
+// Must load before any router is defined. Patches Express so a rejected
 // promise inside an async route handler reaches the error middleware below
 // instead of becoming an unhandled rejection that crashes the whole
 // process (Express 4 doesn't await async handlers on its own).
@@ -42,14 +42,14 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 // Default 100kb is too small for a bulk import request (up to 2000 rows,
-// see lib/import.ts) — every other route's payloads are tiny by comparison,
+// see lib/import.ts), and every other route's payloads are tiny by comparison,
 // so raising the ceiling here doesn't add real risk, just headroom.
 app.use(express.json({ limit: "5mb" }));
 
 // Reads the Clerk session token on every request and attaches auth.
 app.use(clerkMiddleware());
 
-// Health check — handy for confirming the server is up.
+// Health check: handy for confirming the server is up.
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "foundr-api" });
 });
@@ -81,8 +81,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 // Last-resort net for anything outside the request/response cycle (a
-// stray unawaited promise, a bug in a library's own background code) —
-// log it instead of letting Node's default behaviour kill the process.
+// stray unawaited promise, a bug in a library's own background code).
+// Log it instead of letting Node's default behaviour kill the process.
 process.on("unhandledRejection", (reason) => {
   console.error("[server] Unhandled promise rejection:", reason);
 });

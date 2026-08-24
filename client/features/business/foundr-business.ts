@@ -12,13 +12,13 @@ import "../../shared/components/foundr-tour-overlay";
 
 /**
  * <foundr-business>
- * The business switcher — a folder grid of everything a founder tracks on
+ * The business switcher: a folder grid of everything a founder tracks on
  * Foundr. Every side hustle gets its own card here; clicking one makes it
  * active and heads to the dashboard, keeping that startup's numbers fully
  * separate from any other. Reachable at /business.
  *
  * This page sits a level above any one startup, so it deliberately skips
- * the full app nav (Dashboard / All entries / Margins / Settings) — that
+ * the full app nav (Dashboard / All entries / Margins / Settings); that
  * only makes sense once you're inside a specific business. Just the brand
  * mark and an account menu here instead.
  */
@@ -77,7 +77,7 @@ export class FoundrBusiness extends LitElement {
     }
   }
 
-  /** Empty businesses only — the backend refuses if it still has tracked entries. */
+  /** Empty businesses only: the backend refuses if it still has tracked entries. */
   private async _deleteFolder(b: Business): Promise<void> {
     if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
     if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
@@ -298,7 +298,7 @@ export class FoundrBusiness extends LitElement {
         <div class="page-head">
           <div>
             <h1>Your startups</h1>
-            <p class="sub">Every side hustle you track on Foundr — each with its own fully separate dashboard.</p>
+            <p class="sub">Every side hustle you track on Foundr, each with its own fully separate dashboard.</p>
           </div>
           ${!this.loading && this.businesses.length > 0
             ? html`

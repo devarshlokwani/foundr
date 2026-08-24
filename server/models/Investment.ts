@@ -9,7 +9,7 @@ import mongoose, { Schema, type InferSchemaType } from "mongoose";
  * business earning money; investment is the founder funding it. ROI is
  * computed by comparing what's been returned against total investment.
  *
- * `deletedAt` makes deletion recoverable — see Expense.ts for the full
+ * `deletedAt` makes deletion recoverable: see Expense.ts for the full
  * reasoning, identical here.
  */
 const investmentSchema = new Schema(

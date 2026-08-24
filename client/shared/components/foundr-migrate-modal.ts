@@ -5,7 +5,7 @@ import "./foundr-import-panel";
 /**
  * <foundr-migrate-modal ?open=${...} businessId=${...} @close=${...}>
  * Opens the migrate/import wizard (see foundr-import-panel.ts) as an
- * overlay instead of a page navigation — triggered from
+ * overlay instead of a page navigation. Triggered from
  * foundr-page-actions, it opens right over whichever page the founder was
  * on (Dashboard or All Entries) and closing it returns them exactly where
  * they were, rather than a round trip out to Settings and back.

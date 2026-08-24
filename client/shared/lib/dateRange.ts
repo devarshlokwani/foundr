@@ -1,11 +1,11 @@
 /**
  * Date-range presets for the dashboard and margins pages. No custom
- * calendar picker for v1 — a fixed set of presets matches the scope of a
+ * calendar picker for v1: a fixed set of presets matches the scope of a
  * manual-mode polish pass, not a full reporting suite.
  *
  * "All time" resolves to `null` bounds, which callers drop from the query
  * string entirely so the backend takes its default all-time path (see
- * server/lib/dateRange.ts) — never sent as an explicit huge range.
+ * server/lib/dateRange.ts); never sent as an explicit huge range.
  *
  * Cached in localStorage so the picker remembers the founder's last choice
  * across page loads, same pattern as theme.ts / business.ts.
@@ -76,7 +76,7 @@ export function setStoredRangePreset(preset: RangePreset): void {
   }
 }
 
-/** Query-string fragment for a preset — empty for all-time, so callers can spread it straight into a URL. */
+/** Query-string fragment for a preset, empty for all-time, so callers can spread it straight into a URL. */
 export function rangeQueryParams(preset: RangePreset): string {
   const { start, end } = resolveRange(preset);
   if (!start || !end) return "";

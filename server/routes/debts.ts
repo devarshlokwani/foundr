@@ -5,11 +5,11 @@ import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
 
 /**
- * Debt API — money borrowed for one business, and repayments against it.
+ * Debt API: money borrowed for one business, and repayments against it.
  * Scoped to the signed-in user and `?businessId=`, same as investments.
  * The outstanding balance (borrowed minus repaid) is always derived from
  * this ledger, not stored, so it can't drift out of sync. Deletion is
- * soft — see routes/transactions.ts's doc comment for the full reasoning,
+ * soft; see routes/transactions.ts's doc comment for the full reasoning,
  * identical here.
  *
  * Routes:
@@ -58,7 +58,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "create", entityType: "debt", entityId: String(created._id),
-    summary: `Added ${created.amount} ${created.type === "borrow" ? "debt" : "repayment"} — ${created.source}`,
+    summary: `Added ${created.amount} ${created.type === "borrow" ? "debt" : "repayment"}: ${created.source}`,
   });
   res.status(201).json(created);
 });
@@ -94,7 +94,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "update", entityType: "debt", entityId: String(updated._id),
-    summary: `Updated ${updated.type === "borrow" ? "debt" : "repayment"} — ${updated.source}`,
+    summary: `Updated ${updated.type === "borrow" ? "debt" : "repayment"}: ${updated.source}`,
   });
   res.json(updated);
 });
@@ -111,7 +111,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "delete", entityType: "debt", entityId: String(deleted._id),
-    summary: `Deleted ${deleted.amount} ${deleted.type === "borrow" ? "debt" : "repayment"} — ${deleted.source}`,
+    summary: `Deleted ${deleted.amount} ${deleted.type === "borrow" ? "debt" : "repayment"}: ${deleted.source}`,
   });
   res.json({ ok: true });
 });
@@ -128,7 +128,7 @@ router.post("/:id/restore", async (req: Request, res: Response) => {
 
   void logActivity({
     userId: userId!, businessId: businessId!, action: "restore", entityType: "debt", entityId: String(restored._id),
-    summary: `Restored ${restored.type === "borrow" ? "debt" : "repayment"} — ${restored.source}`,
+    summary: `Restored ${restored.type === "borrow" ? "debt" : "repayment"}: ${restored.source}`,
   });
   res.json(restored);
 });

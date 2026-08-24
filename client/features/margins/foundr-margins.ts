@@ -16,13 +16,13 @@ import "../../shared/components/foundr-tour-overlay";
 
 type Section = "margins" | "trends" | "balance-sheet";
 
-/** Categorical palette for the donut chart — the accent colour from each
+/** Categorical palette for the donut chart: the accent colour from each
  * of the app's own themes, so the chart reads as branded, not generic. */
 const DONUT_COLORS = ["#2D4A3E", "#4C8267", "#4B2E83", "#1F5A6E", "#B5502E", "#5B7A99", "#8AAF9A"];
 
 /**
  * <foundr-margins>
- * Financial reports, three views: Margins (a cash-basis income breakdown —
+ * Financial reports, three views: Margins (a cash-basis income breakdown:
  * revenue by category, expenses by category, net margin), Trends (revenue
  * vs. expense over time, month-over-month net, category donut), and
  * Balance Sheet (Assets = Liabilities + Equity, made possible by Draws
@@ -42,7 +42,7 @@ export class FoundrMargins extends LitElement {
   @state() private businessId = "";
   @state() private hoveredMonth: number | null = null;
   @state() private range: RangePreset = getStoredRangePreset();
-  // Trend-chart-only granularity — month-over-month always stays monthly
+  // Trend-chart-only granularity: month-over-month always stays monthly
   // (its whole point is a monthly comparison), so it keeps its own series
   // fetched at "month" regardless of what the trend chart is set to.
   @state() private trendGranularity: Granularity = getStoredGranularity();
@@ -142,13 +142,13 @@ export class FoundrMargins extends LitElement {
   }
 
   private _pct(n: number | null): string {
-    if (n === null) return "—";
+    if (n === null) return "-";
     return (n >= 0 ? "+" : "") + Math.round(n * 100) + "%";
   }
 
-  /** A / B as "x.xx", or "—" when B is zero (nothing to divide by yet). */
+  /** A / B as "x.xx", or "-" when B is zero (nothing to divide by yet). */
   private _ratio(a: number, b: number): string {
-    if (b === 0) return "—";
+    if (b === 0) return "-";
     return (a / b).toFixed(2);
   }
 
@@ -161,7 +161,7 @@ export class FoundrMargins extends LitElement {
     if (!r) return;
 
     const rows: (string | number)[][] = [
-      ["Foundr — Margins report"],
+      ["Foundr: Margins report"],
       [`Generated ${new Date().toLocaleDateString()}`, `Currency: ${getCurrency()}`],
       [],
       ["Revenue by category"],
@@ -178,7 +178,7 @@ export class FoundrMargins extends LitElement {
       ["Total revenue", r.metrics.totalIncome],
       ["Total expenses", r.metrics.totalExpenses],
       ["Net margin", r.metrics.totalIncome - r.metrics.totalExpenses],
-      ["Gross margin %", r.metrics.grossMargin === null ? "—" : `${Math.round(r.metrics.grossMargin * 100)}%`],
+      ["Gross margin %", r.metrics.grossMargin === null ? "-" : `${Math.round(r.metrics.grossMargin * 100)}%`],
       ["Total invested", r.metrics.totalInvested],
       ["Net position", r.metrics.netPosition],
       ["Cash remaining", r.metrics.cashRemaining],
@@ -193,7 +193,7 @@ export class FoundrMargins extends LitElement {
     const liabEquityTotal = b.liabilities.total + b.equity.total;
 
     const rows: (string | number)[][] = [
-      [`${this.businessName} — Balance Sheet`],
+      [`${this.businessName}: Balance Sheet`],
       [`As of ${this._today()}`, `Currency: ${getCurrency()}`],
       [],
       ["ASSETS"],
@@ -232,7 +232,7 @@ export class FoundrMargins extends LitElement {
   // Zero new dependencies: the browser's own print dialog doubles as
   // "Save as PDF" everywhere that matters, and the @media print rules
   // below hide everything except whichever report is currently on
-  // screen — margins or balance sheet, whichever tab is open.
+  // screen: margins or balance sheet, whichever tab is open.
   private _exportPdf(): void {
     window.print();
   }
@@ -359,7 +359,7 @@ export class FoundrMargins extends LitElement {
       margin-top: 18px; padding-top: 16px; border-top: 0.5px solid var(--line, #E2DFD7);
     }
 
-    /* Trends tab — charts */
+    /* Trends tab: charts */
     .trends-grid { margin-top: 16px; }
     .chart-empty { font-size: 13px; color: var(--ink-soft, #6B6B66); padding: 30px 0; text-align: center; }
     svg { display: block; width: 100%; height: auto; }
@@ -416,7 +416,7 @@ export class FoundrMargins extends LitElement {
       background: var(--bg, #ECEAE3); z-index: 5;
     }
 
-    /* Formal statement — deliberately more "official document" than the
+    /* Formal statement, deliberately more "official document" than the
        rest of the app's soft rounded cards, since this is the one thing a
        founder might actually print or hand to a bank/accountant. */
     .statement {
@@ -480,7 +480,7 @@ export class FoundrMargins extends LitElement {
       .kpi-grid { grid-template-columns: 1fr; }
     }
 
-    /* Export PDF (window.print()) — only the current report should print,
+    /* Export PDF (window.print()): only the current report should print,
        none of the app chrome around it. Whichever section is active is
        already the only one in the DOM (see render()), so this just needs
        to strip navigation/tabs/buttons and let the content fill the page. */
@@ -495,7 +495,7 @@ export class FoundrMargins extends LitElement {
     }
   `;
 
-  // The header shows immediately — title and subtitle are always static,
+  // The header shows immediately: title and subtitle are always static,
   // the tab switcher and export button only make sense once there's
   // something to show/export.
   private _renderHeader(): TemplateResult {
@@ -848,7 +848,7 @@ export class FoundrMargins extends LitElement {
           <div class="kpi dark">
             <div class="kpi-label">Total equity</div>
             <div class="kpi-value">${this._money(b.equity.total)}</div>
-            <div class="kpi-hint">${b.balanced ? "Assets = Liabilities + Equity ✓" : "Doesn't balance — check your entries"}</div>
+            <div class="kpi-hint">${b.balanced ? "Assets = Liabilities + Equity ✓" : "Doesn't balance. Check your entries"}</div>
           </div>
         </div>
 
@@ -894,7 +894,7 @@ export class FoundrMargins extends LitElement {
           </div>
 
           <div class="balance-check ${b.balanced ? "ok" : "bad"}">
-            ${b.balanced ? "Assets = Liabilities + Equity — balanced ✓" : "Doesn't balance — check your entries"}
+            ${b.balanced ? "Assets = Liabilities + Equity, balanced ✓" : "Doesn't balance. Check your entries"}
           </div>
         </div>
 

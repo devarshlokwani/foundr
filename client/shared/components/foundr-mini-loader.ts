@@ -4,10 +4,10 @@ import gsap from "gsap";
 
 /**
  * <foundr-mini-loader>
- * A small, quiet, continuously-looping version of the water-fill mark —
+ * A small, quiet, continuously-looping version of the water-fill mark:
  * the loading indicator for in-app pages (dashboard, transactions,
  * margins, settings). Shown for as long as loading takes; no scroll-lock,
- * no reveal choreography, no exit fade — just loops until data arrives.
+ * no reveal choreography, no exit fade, just loops until data arrives.
  */
 @customElement("foundr-mini-loader")
 export class FoundrMiniLoader extends LitElement {

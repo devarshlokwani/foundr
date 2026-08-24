@@ -1,13 +1,13 @@
 /**
- * Money formatting for Foundr — the single source of truth for currency.
+ * Money formatting for Foundr: the single source of truth for currency.
  *
  * Supports multiple currencies. The active currency is the founder's saved
  * preference (loaded from /api/settings at app start via setCurrency). On a
  * brand-new account we seed a sensible default from the browser locale, then
  * the user can change it on the settings page.
  *
- * Everything that shows an amount calls formatMoney() — no component
- * hardcodes a symbol — so changing currency updates the whole app.
+ * Everything that shows an amount calls formatMoney(); no component
+ * hardcodes a symbol, so changing currency updates the whole app.
  */
 
 export type CurrencyCode = "USD" | "AUD" | "INR" | "EUR" | "GBP" | "CAD" | "SGD";

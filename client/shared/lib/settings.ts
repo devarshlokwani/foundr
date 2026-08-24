@@ -4,7 +4,7 @@ import type { UserSettings } from "./types";
 
 /**
  * Loads the founder's settings and applies their theme for the session.
- * Currency isn't here — it's per-business, applied when the active
+ * Currency isn't here: it's per-business, applied when the active
  * business is resolved (see business.ts's resolveActiveBusiness).
  *
  * Call once at app startup (dashboard, transactions, margins, settings
@@ -39,7 +39,7 @@ export async function saveProfileFields(fields: {
   return apiPatch<UserSettings>("/settings", fields);
 }
 
-/** Marks the one-time onboarding wizard as complete — it never shows again. */
+/** Marks the one-time onboarding wizard as complete; it never shows again. */
 export async function markOnboarded(): Promise<void> {
   await apiPatch("/settings", { onboarded: true });
 }

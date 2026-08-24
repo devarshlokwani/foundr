@@ -59,10 +59,10 @@ const NAV_ITEM_GAP = 6;
 /**
  * <foundr-settings>
  * The founder's settings page, split into sections behind a left nav with
- * an animated sliding indicator: General (currency, appearance — currency
+ * an animated sliding indicator: General (currency, appearance; currency
  * belongs to whichever startup is currently active, not the account),
- * Profile (name, gender — name lives in Clerk, gender in our DB), Security
- * (recovery email, all Clerk — two-factor auth needs a paid Clerk plan
+ * Profile (name, gender; name lives in Clerk, gender in our DB), Security
+ * (recovery email, all Clerk; two-factor auth needs a paid Clerk plan
  * Foundr isn't on yet, so it's marked "coming soon" instead of a broken
  * setup flow), and Startups (switch, rename, or add businesses).
  */
@@ -88,7 +88,7 @@ export class FoundrSettings extends LitElement {
   @state() private profileSaved = false;
   @state() private profileError = "";
 
-  // Security — emails
+  // Security: emails
   @state() private emails: EmailRow[] = [];
   @state() private newEmail = "";
   @state() private pendingEmailId = "";
@@ -106,7 +106,7 @@ export class FoundrSettings extends LitElement {
   @state() private renamingId = "";
   @state() private renameValue = "";
 
-  // Activity — lazy-loaded (only fetched once the tab is actually opened).
+  // Activity, lazy-loaded (only fetched once the tab is actually opened).
   @state() private activityItems: ActivityLogEntry[] = [];
   @state() private activityLoading = false;
   @state() private activityError = "";
@@ -243,7 +243,7 @@ export class FoundrSettings extends LitElement {
     }
   }
 
-  /** Empty businesses only — the backend refuses if it still has tracked entries. */
+  /** Empty businesses only: the backend refuses if it still has tracked entries. */
   private async _deleteStartup(b: Business): Promise<void> {
     if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
     if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
@@ -306,7 +306,7 @@ export class FoundrSettings extends LitElement {
     this.generalError = "";
     try {
       // Currency belongs to whichever startup is currently active, not the
-      // account as a whole — switching businesses picks up their own value.
+      // account as a whole, switching businesses picks up their own value.
       const updated = await setBusinessCurrency(this.activeBusinessId, next);
       this.businesses = this.businesses.map((b) => (b._id === updated._id ? updated : b));
       setCurrency(next);
@@ -670,7 +670,7 @@ export class FoundrSettings extends LitElement {
         <div class="setting">
           <div class="setting-info">
             <div class="label">Plan</div>
-            <div class="desc">You're on the Free plan — every core feature, no cost.</div>
+            <div class="desc">You're on the Free plan: every core feature, no cost.</div>
           </div>
           <button class="btn-save-form" @click=${() => { this.comingSoonOpen = true; }}>Upgrade</button>
         </div>
@@ -680,7 +680,7 @@ export class FoundrSettings extends LitElement {
         <div class="setting">
           <div class="setting-info">
             <div class="label">Currency</div>
-            <div class="desc">How amounts are shown across Foundr. We set a default from your region — change it anytime.</div>
+            <div class="desc">How amounts are shown across Foundr. We set a default from your region, change it anytime.</div>
           </div>
           <select @change=${this._onCurrencyChange} ?disabled=${this.generalSaving} .value=${this.currency}>
             ${CURRENCIES.map(
@@ -694,7 +694,7 @@ export class FoundrSettings extends LitElement {
       <div class="card">
         <div class="setting-info">
           <div class="label">Appearance</div>
-          <div class="desc">Pick the colour scheme Foundr renders in — applies instantly.</div>
+          <div class="desc">Pick the colour scheme Foundr renders in. Applies instantly.</div>
         </div>
         <div class="theme-grid">
           ${THEME_OPTIONS.map(
@@ -766,7 +766,7 @@ export class FoundrSettings extends LitElement {
   }
 
   // Two-factor auth (TOTP) and backup codes need a paid Clerk plan Foundr
-  // isn't on yet — shown as "coming soon" rather than a setup flow that
+  // isn't on yet, shown as "coming soon" rather than a setup flow that
   // would fail. See auth.service.ts for the underlying Clerk calls, which
   // are already written and ready to wire back in once that changes.
   private _renderMfaCard(): TemplateResult {
@@ -850,7 +850,7 @@ export class FoundrSettings extends LitElement {
       <div class="card">
         <div class="setting-info">
           <div class="label">Your startups</div>
-          <div class="desc">Every side hustle you track on Foundr gets its own isolated dashboard — numbers never mix between them. Switch which one you're working in here.</div>
+          <div class="desc">Every side hustle you track on Foundr gets its own isolated dashboard. Numbers never mix between them. Switch which one you're working in here.</div>
         </div>
         <div class="startup-list">
           ${this.businesses.map((b) =>
@@ -934,7 +934,7 @@ export class FoundrSettings extends LitElement {
       <div class="card">
         <div class="setting-info">
           <div class="label">Recurring entries</div>
-          <div class="desc">Expenses or revenue that repeat on a schedule — start one from "Add entry" and check "Make this recurring." Each appears automatically as a real entry when it comes due. Also manageable from the "Recurring" tab on All Entries.</div>
+          <div class="desc">Expenses or revenue that repeat on a schedule: start one from "Add entry" and check "Make this recurring." Each appears automatically as a real entry when it comes due. Also manageable from the "Recurring" tab on All Entries.</div>
         </div>
         <foundr-recurring-list businessId=${this.activeBusinessId}></foundr-recurring-list>
       </div>
@@ -946,7 +946,7 @@ export class FoundrSettings extends LitElement {
       <div class="card">
         <div class="setting-info">
           <div class="label">Trash</div>
-          <div class="desc">Deleted expenses, revenue, investments, draws, and debt entries land here first — restore one, or delete it forever. Also manageable from the "Deleted" tab on All Entries.</div>
+          <div class="desc">Deleted expenses, revenue, investments, draws, and debt entries land here first. Restore one, or delete it forever. Also manageable from the "Deleted" tab on All Entries.</div>
         </div>
         <foundr-trash-list businessId=${this.activeBusinessId}></foundr-trash-list>
       </div>
@@ -1002,7 +1002,7 @@ export class FoundrSettings extends LitElement {
       <div class="card">
         <div class="setting-info">
           <div class="label">Migrate</div>
-          <div class="desc">Bring in data from wherever you were tracking things before — a rulebook, a copy-pasteable AI prompt, and a JSON/CSV upload. Also reachable from the Actions menu on Dashboard and All Entries.</div>
+          <div class="desc">Bring in data from wherever you were tracking things before: a rulebook, a copy-pasteable AI prompt, and a JSON/CSV upload. Also reachable from the Actions menu on Dashboard and All Entries.</div>
         </div>
         <foundr-import-panel businessId=${this.activeBusinessId}></foundr-import-panel>
       </div>

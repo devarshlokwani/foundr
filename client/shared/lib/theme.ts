@@ -16,7 +16,7 @@ const THEME_CODES: ThemeCode[] = ["light", "dark", "royal", "ocean", "sunset", "
 
 const STORAGE_KEY = "foundr-theme";
 
-/** Fixed preview colours for each theme — shown regardless of the
+/** Fixed preview colours for each theme, shown regardless of the
  * currently active theme, so a swatch always represents its own theme.
  * Shared by the Settings page and the profile menu's quick switcher. */
 export const THEME_OPTIONS: { code: ThemeCode; label: string; desc: string; swatch: [string, string, string] }[] = [

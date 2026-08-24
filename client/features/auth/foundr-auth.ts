@@ -48,7 +48,7 @@ export class FoundrAuth extends LitElement {
    * closed the tab and came straight back to /sign-in would otherwise hit
    * Clerk's own "already signed in" error the moment they submit the
    * form. If that session is still within the tab-close grace period,
-   * skip the form entirely and go straight to the startup switcher —
+   * skip the form entirely and go straight to the startup switcher:
    * genuinely still logged in. If it's gone stale, checkSessionFreshness
    * signs them out here so the form underneath behaves normally.
    */
@@ -338,7 +338,7 @@ export class FoundrAuth extends LitElement {
           <h1>${this.isSignUp ? "Start seeing your numbers clearly." : "Welcome back, founder."}</h1>
           <p>
             ${this.isSignUp
-              ? "Join founders who turned scattered notes into a clear picture of their business — burn, runway, ROI, and margins, all in one place."
+              ? "Join founders who turned scattered notes into a clear picture of their business: burn, runway, ROI, and margins, all in one place."
               : "Pick up right where you left off. Your business, your numbers, all in one clear view."}
           </p>
         </div>

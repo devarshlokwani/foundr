@@ -9,15 +9,15 @@ const RING_PADDING = 8;
 /**
  * <foundr-tour-overlay>
  * Mounted on every page the tour visits (dashboard, transactions, margins,
- * business, settings) — inert unless a tour is active and the current
+ * business, settings); inert unless a tour is active and the current
  * step belongs to this page. Finds the real target element by piercing
  * one level into the page component's own Shadow DOM (every step's
- * target lives directly in its page's shadow root — see tour.ts), draws
+ * target lives directly in its page's shadow root, see tour.ts), draws
  * a glowing ring around it, and shows an explanatory tooltip using the
  * same card/icon/dots/nav-btn language as the onboarding wizard.
  *
  * Several targets (the KPI grid, the entries list, the margins tabs)
- * only render once there's real data — a founder can launch the tour
+ * only render once there's real data; a founder can launch the tour
  * before adding anything. When a target can't be found after a short
  * retry window, the step still shows as a centered card with the same
  * text, just without a highlight, rather than silently skipping it.
@@ -30,7 +30,7 @@ export class FoundrTourOverlay extends LitElement {
 
   private _pollTimer: number | null = null;
   private _ringPositioned = false;
-  /** Bumped on every _locate() call; async continuations bail out if a newer call has since superseded them — otherwise a stale poll or rAF callback from a previous step can overwrite the current one's highlight (the intermittent "highlight doesn't show" bug). */
+  /** Bumped on every _locate() call; async continuations bail out if a newer call has since superseded them, otherwise a stale poll or rAF callback from a previous step can overwrite the current one's highlight (the intermittent "highlight doesn't show" bug). */
   private _locateGen = 0;
 
   private readonly _onResize = (): void => this._measure();
@@ -39,7 +39,7 @@ export class FoundrTourOverlay extends LitElement {
   };
   /**
    * The single source of truth for what this instance shows. Re-run on
-   * connect AND whenever TOUR_CHANGE_EVENT fires — writing to
+   * connect AND whenever TOUR_CHANGE_EVENT fires: writing to
    * sessionStorage alone doesn't wake up an already-mounted instance (see
    * tour.ts), so without this, starting or advancing the tour from the
    * page it's already showing would silently do nothing until a reload.
@@ -91,18 +91,18 @@ export class FoundrTourOverlay extends LitElement {
   /**
    * Finds the target and highlights it. On a same-page step change the
    * target already exists, so this resolves within a tick. On a fresh
-   * cross-page navigation it can take real time to appear — Clerk
+   * cross-page navigation it can take real time to appear: Clerk
    * re-initialises, then the page's own auth check, business resolve, and
-   * data fetch all run sequentially before the element ever renders — so
+   * data fetch all run sequentially before the element ever renders, so
    * this polls for up to 8s rather than giving up early.
    *
    * Nothing renders (the overlay stays fully invisible) until the target
-   * is actually found — no centered placeholder while waiting. Showing
+   * is actually found; no centered placeholder while waiting. Showing
    * one and then relocating it once the real position is known reads as
    * a glitch; better to just wait, however long that takes, and appear
    * once in the right place. The centered "untargeted" card is still the
    * fallback if the target genuinely never appears (e.g. an empty
-   * dashboard with no KPI grid to show at all) — that's a real absence,
+   * dashboard with no KPI grid to show at all); that's a real absence,
    * not a loading delay, so it still needs to say something once the
    * full window is exhausted.
    */
@@ -150,7 +150,7 @@ export class FoundrTourOverlay extends LitElement {
     this.rect = el ? el.getBoundingClientRect() : null;
   }
 
-  /** Just persists + dispatches — _sync() (triggered by the event this fires) is what actually updates this instance, whether it's the same page or a fresh one after navigating. */
+  /** Just persists + dispatches; _sync() (triggered by the event this fires) is what actually updates this instance, whether it's the same page or a fresh one after navigating. */
   private _go(index: number): void {
     if (index >= TOUR_STEPS.length) {
       endTour();
@@ -207,7 +207,7 @@ export class FoundrTourOverlay extends LitElement {
     }
     .card.centered { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
-    /* Speech-bubble tail — a rotated square, half tucked behind the card
+    /* Speech-bubble tail: a rotated square, half tucked behind the card
        edge, same fill as the card, so it reads as one connected shape
        pointing at whatever's highlighted rather than a floating block. */
     .tail {

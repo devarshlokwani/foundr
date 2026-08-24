@@ -1,14 +1,14 @@
 import mongoose, { Schema, type InferSchemaType } from "mongoose";
 
 /**
- * A Draw is money the founder takes OUT of the business for personal use —
+ * A Draw is money the founder takes OUT of the business for personal use,
  * the mirror image of an Investment. Kept separate from Expense on purpose:
  * an expense is the business spending to operate; a draw is the owner
  * withdrawing equity. Conflating the two would silently corrupt burn rate
  * and gross margin, and this is exactly what makes a real balance sheet
  * (Assets = Liabilities + Equity) possible instead of just a cash tracker.
  *
- * `deletedAt` makes deletion recoverable — see Expense.ts for the full
+ * `deletedAt` makes deletion recoverable: see Expense.ts for the full
  * reasoning, identical here.
  */
 const drawSchema = new Schema(

@@ -1,7 +1,7 @@
 /**
  * Shared parsing for the `?rangeStart=&rangeEnd=` query params accepted by
  * /api/metrics, /api/insights, and /api/reports/margins (never
- * /api/reports/balance-sheet — that report is always a live, all-time
+ * /api/reports/balance-sheet: that report is always a live, all-time
  * snapshot, same reasoning documented in lib/metrics.ts).
  *
  * Both params are optional and go together: `rangeEnd` alone caps
@@ -11,9 +11,9 @@
  */
 
 export interface ParsedRange {
-  /** The date to treat as "now" for cumulative figures — real "now" if no rangeEnd was given. */
+  /** The date to treat as "now" for cumulative figures, real "now" if no rangeEnd was given. */
   rangeEnd: Date;
-  /** Non-null only when a valid rangeStart was given — what computeMetrics/computeInsights use to scope flow figures. */
+  /** Non-null only when a valid rangeStart was given: what computeMetrics/computeInsights use to scope flow figures. */
   period: { start: Date; end: Date } | null;
   /** A Mongo filter fragment: `{}` if no rangeEnd was given (no-op), otherwise caps queries at rangeEnd. */
   dateFilter: Record<string, unknown>;

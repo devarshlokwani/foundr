@@ -12,10 +12,10 @@ type View = "main" | "theme";
  * founder's name, email, a theme quick-switcher, and sign-out. Used
  * wherever a page deliberately doesn't show the full app nav (e.g. the
  * business switcher, which sits a level above any one startup's
- * dashboard) — signing out and changing themes still need to be reachable
+ * dashboard); signing out and changing themes still need to be reachable
  * from there.
  *
- * The avatar only shows Clerk's `imageUrl` when `hasImage` is true — that
+ * The avatar only shows Clerk's `imageUrl` when `hasImage` is true; that
  * field is real (a Google photo if signed in with "Continue with Google",
  * or an uploaded one) only when the founder actually has one; otherwise
  * Clerk returns its own generic placeholder graphic, which we replace
@@ -69,7 +69,7 @@ export class FoundrProfileMenu extends LitElement {
     try {
       await saveTheme(next);
     } catch {
-      // Theme still applies locally even if the save fails silently here —
+      // Theme still applies locally even if the save fails silently here;
       // it'll reconcile with the backend next time settings load.
     }
   }

@@ -8,11 +8,11 @@ export type TopbarPage = "dashboard" | "transactions" | "margins" | "settings" |
  * <foundr-topbar active="dashboard" businessName="My Startup">
  * Shared nav bar for every signed-in app page (dashboard, transactions,
  * margins, settings). One place to keep the four pages' nav links in
- * sync — before this, each page hand-rolled its own topbar and they'd
+ * sync. Before this, each page hand-rolled its own topbar and they'd
  * quietly drifted out of sync with each other.
  *
  * `businessName`, when set, shows the active business next to the brand
- * mark, linking to /business — the switcher for founders running more
+ * mark, linking to /business: the switcher for founders running more
  * than one startup on Foundr.
  *
  * Page-specific actions (e.g. the dashboard's "Add entry" button) go in
