@@ -109,9 +109,11 @@ export class FoundrTrashList extends LitElement {
     .icon-btn {
       background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
       width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-soft, #6B6B66); font-size: 14px;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .icon-btn:hover { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); }
-    .icon-btn.danger:hover { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); }
+    .icon-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .icon-btn:active:not(:disabled) { transform: translate(0, 0) scale(0.94); box-shadow: none; }
+    .icon-btn.danger:hover:not(:disabled) { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); box-shadow: 2px 2px 0 var(--danger-border, #F0C5C3); }
     .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .status { font-size: 13px; color: var(--danger, #A8302B); margin-top: 12px; min-height: 18px; }
   `;

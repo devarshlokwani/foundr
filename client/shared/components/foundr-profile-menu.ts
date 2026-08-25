@@ -3,17 +3,29 @@ import { customElement, state } from "lit/decorators.js";
 import { getClerk, signOut } from "../../features/auth/auth.service";
 import { saveTheme } from "../lib/settings";
 import { THEME_OPTIONS, getStoredTheme, type ThemeCode } from "../lib/theme";
+import { startTour } from "../lib/tour";
+import "./foundr-coming-soon-modal";
 
 type View = "main" | "theme";
 
 /**
  * <foundr-profile-menu>
  * A small account control: avatar button that opens a popover with the
- * founder's name, email, a theme quick-switcher, and sign-out. Used
- * wherever a page deliberately doesn't show the full app nav (e.g. the
- * business switcher, which sits a level above any one startup's
- * dashboard); signing out and changing themes still need to be reachable
- * from there.
+ * founder's name, email, and quick links into the account-level things
+ * that live elsewhere in the app (plan, security, settings, theme, the
+ * tour) plus sign-out. Used wherever a page deliberately doesn't show the
+ * full app nav (e.g. the business switcher, which sits a level above any
+ * one startup's dashboard); these still need to be reachable from there.
+ *
+ * Every item here routes into a real page/feature rather than duplicating
+ * its logic: "Settings" lands on Settings → General, "Account security"
+ * on Settings → Security, "Upgrade plan" opens the same coming-soon
+ * modal Settings → General's own Upgrade button opens (there's no
+ * billing/plan system yet), "Take the tour" calls the same startTour()
+ * the Settings → Startups launcher uses. There's no "Manage users" here
+ * the way a team-based SaaS profile menu would have one; Foundr is
+ * single-user per business, so it's left out rather than
+ * added just to pad the list out.
  *
  * The avatar only shows Clerk's `imageUrl` when `hasImage` is true; that
  * field is real (a Google photo if signed in with "Continue with Google",
@@ -29,6 +41,7 @@ export class FoundrProfileMenu extends LitElement {
   @state() private email = "";
   @state() private avatarUrl = "";
   @state() private theme: ThemeCode = getStoredTheme();
+  @state() private comingSoonOpen = false;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -74,6 +87,12 @@ export class FoundrProfileMenu extends LitElement {
     }
   }
 
+  private _takeTour(e: Event): void {
+    e.stopPropagation();
+    this.open = false;
+    startTour();
+  }
+
   private async _signOut(): Promise<void> {
     await signOut();
     window.location.href = "/";
@@ -84,6 +103,11 @@ export class FoundrProfileMenu extends LitElement {
   }
 
   static styles = css`
+    /* Without this, width: 100% + padding on .menu-item (below) adds the
+       padding on top of the 100%, so the hovered row's background was
+       rendering wider than the card and poking out past its rounded
+       right edge instead of staying inset with it. */
+    :host, :host * { box-sizing: border-box; }
     :host {
       display: block;
       position: relative;
@@ -99,7 +123,11 @@ export class FoundrProfileMenu extends LitElement {
     .ti-palette:before { content: "\\eb01"; }
     .ti-chevron-right:before { content: "\\ea61"; }
     .ti-chevron-left:before { content: "\\ea60"; }
-    button { font-family: inherit; cursor: pointer; border: none; }
+    .ti-crown:before { content: "\\ed12"; }
+    .ti-shield-check:before { content: "\\eb22"; }
+    .ti-settings:before { content: "\\eb20"; }
+    .ti-compass:before { content: "\\ea79"; }
+    a, button { font-family: inherit; cursor: pointer; border: none; text-decoration: none; }
 
     .avatar-btn {
       width: 38px; height: 38px; border-radius: 50%; overflow: hidden; padding: 0;
@@ -111,20 +139,28 @@ export class FoundrProfileMenu extends LitElement {
     .avatar-fallback { color: #fff; font-size: 15px; font-weight: 600; font-family: var(--font-display, serif); }
 
     .menu {
-      position: absolute; top: calc(100% + 10px); right: 0; width: 270px;
+      position: absolute; top: calc(100% + 10px); right: 0; width: 290px;
       background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
       border-radius: var(--radius-card, 20px); box-shadow: 0 20px 50px -16px rgba(31,51,41,0.35);
       padding: 8px; z-index: 50;
     }
-    .menu-head { display: flex; align-items: center; gap: 12px; padding: 12px 10px; }
-    .menu-avatar { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .menu-head { display: flex; align-items: flex-start; gap: 12px; padding: 12px 10px 10px; }
+    .menu-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     .menu-avatar-fallback {
-      width: 42px; height: 42px; border-radius: 50%; background: var(--forest, #2D4A3E); color: #fff;
-      display: grid; place-items: center; font-size: 17px; font-weight: 600; font-family: var(--font-display, serif);
+      width: 44px; height: 44px; border-radius: 50%; background: var(--forest, #2D4A3E); color: #fff;
+      display: grid; place-items: center; font-size: 18px; font-weight: 600; font-family: var(--font-display, serif);
       flex-shrink: 0;
     }
+    .menu-identity { flex: 1; min-width: 0; }
     .menu-name { font-size: 14.5px; font-weight: 600; color: var(--ink, #1C1C1C); }
-    .menu-email { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin-top: 1px; word-break: break-all; }
+    .menu-email { font-size: 12px; color: var(--ink-soft, #6B6B66); margin-top: 1px; word-break: break-all; }
+    .edit-btn {
+      flex-shrink: 0; font-size: 11px; font-weight: 500; color: var(--forest, #2D4A3E);
+      background: var(--sage-soft, #DDE7E0); padding: 5px 10px; border-radius: var(--radius-pill, 999px);
+      transition: background 0.15s ease;
+    }
+    .edit-btn:hover { background: var(--sage, #8AAF9A); color: #fff; }
+
     .menu-sep { height: 0.5px; background: var(--line, #E2DFD7); margin: 4px 6px; }
     .menu-item {
       width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
@@ -132,8 +168,19 @@ export class FoundrProfileMenu extends LitElement {
       color: var(--ink, #1C1C1C); transition: background 0.15s ease;
     }
     .menu-item:hover { background: var(--surface-alt, #F2EFE8); }
-    .menu-item .ti { font-size: 16px; color: var(--ink-soft, #6B6B66); }
+    .menu-item .ti { font-size: 16px; color: var(--ink-soft, #6B6B66); flex-shrink: 0; }
     .menu-item .chev { margin-left: auto; font-size: 14px; }
+    .plan-badge {
+      margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+      color: var(--forest, #2D4A3E); background: var(--sage-soft, #DDE7E0); padding: 3px 9px; border-radius: var(--radius-pill, 999px);
+    }
+
+    .logout-btn {
+      width: 100%; margin-top: 4px; padding: 11px; border-radius: var(--radius-pill, 999px);
+      background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); font-size: 14px; font-weight: 600;
+      text-align: center; transition: background 0.15s ease;
+    }
+    .logout-btn:hover { background: var(--danger-border, #F0C5C3); }
 
     .theme-head { display: flex; align-items: center; gap: 8px; padding: 8px 6px 10px; }
     .back-btn {
@@ -160,20 +207,34 @@ export class FoundrProfileMenu extends LitElement {
         ${this.avatarUrl
           ? html`<img class="menu-avatar" src=${this.avatarUrl} alt="" />`
           : html`<span class="menu-avatar-fallback">${this._initial}</span>`}
-        <div>
+        <div class="menu-identity">
           <div class="menu-name">${this.name}</div>
           <div class="menu-email">${this.email}</div>
         </div>
+        <a class="edit-btn" href="/settings?section=profile" @click=${(e: Event) => e.stopPropagation()}>Edit profile</a>
       </div>
       <div class="menu-sep"></div>
+
+      <button class="menu-item" @click=${(e: Event) => { e.stopPropagation(); this.open = false; this.comingSoonOpen = true; }}>
+        <i class="ti ti-crown" aria-hidden="true"></i>Upgrade plan
+        <span class="plan-badge">Free</span>
+      </button>
+      <a class="menu-item" href="/settings?section=security">
+        <i class="ti ti-shield-check" aria-hidden="true"></i>Account security
+      </a>
+      <a class="menu-item" href="/settings">
+        <i class="ti ti-settings" aria-hidden="true"></i>Settings
+      </a>
       <button class="menu-item" @click=${(e: Event) => { e.stopPropagation(); this.view = "theme"; }}>
         <i class="ti ti-palette" aria-hidden="true"></i>Change theme
         <i class="ti ti-chevron-right chev" aria-hidden="true"></i>
       </button>
-      <div class="menu-sep"></div>
-      <button class="menu-item" @click=${this._signOut}>
-        <i class="ti ti-logout" aria-hidden="true"></i>Log out
+      <button class="menu-item" @click=${this._takeTour}>
+        <i class="ti ti-compass" aria-hidden="true"></i>Take the tour
       </button>
+
+      <div class="menu-sep"></div>
+      <button class="logout-btn" @click=${this._signOut}>Log out</button>
     `;
   }
 
@@ -215,6 +276,10 @@ export class FoundrProfileMenu extends LitElement {
       ${this.open
         ? html`<div class="menu">${this.view === "main" ? this._renderMain() : this._renderTheme()}</div>`
         : ""}
+      <foundr-coming-soon-modal
+        ?open=${this.comingSoonOpen}
+        @close=${() => { this.comingSoonOpen = false; }}
+      ></foundr-coming-soon-modal>
     `;
   }
 }

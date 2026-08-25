@@ -587,9 +587,10 @@ export class FoundrTransactions extends LitElement {
     .refresh-btn {
       width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid var(--line, #E2DFD7);
       color: var(--ink-soft, #6B6B66); display: grid; place-items: center; font-size: 14px;
-      transition: background 0.15s ease, transform 0.4s ease;
+      transition: background 0.15s ease, transform 0.4s ease, box-shadow 0.15s ease;
     }
-    .refresh-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); }
+    .refresh-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .refresh-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: none; }
     .refresh-btn.spinning i { animation: spin 0.6s linear; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
@@ -716,12 +717,12 @@ export class FoundrTransactions extends LitElement {
     .icon-btn {
       background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
       width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-soft, #6B6B66);
-      font-size: 14px; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      font-size: 14px; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .icon-btn:hover { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); }
-    .icon-btn:active { transform: scale(0.94); }
-    .icon-btn.danger:hover { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); }
-    .icon-btn.save:hover { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); }
+    .icon-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .icon-btn:active:not(:disabled) { transform: translate(0, 0) scale(0.94); box-shadow: none; }
+    .icon-btn.danger:hover:not(:disabled) { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); box-shadow: 2px 2px 0 var(--danger-border, #F0C5C3); }
+    .icon-btn.save:hover:not(:disabled) { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); }
     .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .cell-input {
@@ -756,16 +757,20 @@ export class FoundrTransactions extends LitElement {
     .undo-toast {
       position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
       display: flex; align-items: center; gap: 16px;
-      background: var(--ink, #1C1C1C); color: #fff; font-size: 14px;
+      /* Fixed near-black, not var(--ink): that token flips to a light
+         shade in Dark/Slate for body-text readability, which would make
+         this toast near-white behind its own white text in those themes. */
+      background: #1C1C1C; color: #fff; font-size: 14px;
       padding: 12px 14px 12px 18px; border-radius: 12px; box-shadow: 0 12px 32px -8px rgba(0,0,0,0.35);
       z-index: 150;
     }
     .undo-btn {
       background: transparent; border: 1px solid rgba(255,255,255,0.35); color: #fff;
       padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .undo-btn:hover { background: rgba(255,255,255,0.12); }
+    .undo-btn:hover { background: rgba(255,255,255,0.12); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 rgba(255,255,255,0.25); }
+    .undo-btn:active { transform: translate(0, 0); box-shadow: none; }
 
     /* Permanent-delete confirmation: deliberately more friction than the
        plain confirm() used for soft deletes elsewhere on this page, since
@@ -797,14 +802,17 @@ export class FoundrTransactions extends LitElement {
     .btn-cancel {
       flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: 1px solid var(--line, #E2DFD7);
       background: transparent; color: var(--ink, #1C1C1C); font-size: 14.5px;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .btn-cancel:hover { background: rgba(45,74,62,0.05); }
+    .btn-cancel:hover { background: rgba(45,74,62,0.05); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
+    .btn-cancel:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .btn-confirm-delete {
       flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: none;
       background: var(--danger, #A8302B); color: #fff; font-size: 14.5px; font-weight: 500;
-      transition: background 0.2s ease, opacity 0.2s ease;
+      transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .btn-confirm-delete:hover:not(:disabled) { background: #8A281F; }
+    .btn-confirm-delete:hover:not(:disabled) { background: #8A281F; transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--danger-border, #F0C5C3); }
+    .btn-confirm-delete:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 #8A281F; }
     .btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .empty { text-align: center; padding: 60px 20px; color: var(--ink-soft, #6B6B66); }

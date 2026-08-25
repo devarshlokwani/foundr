@@ -45,8 +45,17 @@
   --bg: #14161A;
   --surface: #1C1F24;
   --surface-alt: #20242A;
-  --forest: #4C8267;
-  --forest-deep: #6FA487;
+  /* forest/forest-deep are darker than the original tuning: at the old
+     values, white text sitting on them (buttons, badges, the dashboard's
+     "dark" KPI card) measured 4.47:1 and 2.86:1 against WCAG's 4.5:1 text
+     minimum, the hover shade (forest-deep) was actually the worse offender
+     since it was tuned lighter than forest for a "brightens on hover"
+     feel that every other theme does the opposite of (forest-deep is
+     darker than forest everywhere else). These read 6.1:1 / 10.6:1 with
+     white text and go back to being darker-on-hover like every other
+     theme, fixing both problems at once. */
+  --forest: #3D6B54;
+  --forest-deep: #264536;
   --sage: #7FB69B;
   --sage-soft: #223129;
   --ink: #ECEDEE;
@@ -157,8 +166,12 @@
   --bg: #15181D;
   --surface: #1E2228;
   --surface-alt: #242830;
-  --forest: #5B7A99;
-  --forest-deep: #7A9CBD;
+  /* Same fix as the dark theme: forest/forest-deep were too light for
+     white button/badge text (4.48:1 / 2.87:1) and forest-deep was tuned
+     lighter than forest, the opposite of every other theme's hover
+     direction. Now 5.9:1 / 10.3:1 with white text, darker on hover. */
+  --forest: #456885;
+  --forest-deep: #2C4356;
   --sage: #8B9BAE;
   --sage-soft: #262C35;
   --ink: #E8EAED;

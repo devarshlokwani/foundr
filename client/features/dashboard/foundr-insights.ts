@@ -86,13 +86,22 @@ export class FoundrInsights extends LitElement {
     }
     .card .sub { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin: 0 0 18px; }
     .card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    /* Elevated "shadow, not just a border" treatment, matching Margins'
+       granularity-select for consistency across every filter dropdown. */
     .granularity-select {
-      font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink, #1C1C1C);
-      background: var(--surface-alt, #F2EFE8); border: 0.5px solid var(--line, #E2DFD7);
-      border-radius: var(--radius-pill, 999px); padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 12px); padding: 8px 30px 8px 12px; cursor: pointer; flex-shrink: 0;
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center; padding-right: 26px;
+      background-repeat: no-repeat; background-position: right 12px center;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .granularity-select:hover { border-color: var(--sage, #8AAF9A); }
+    .granularity-select:focus {
+      outline: none; border-color: var(--forest, #2D4A3E);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)), 0 0 0 3px rgba(45,74,62,0.1);
     }
     .empty { font-size: 13px; color: var(--ink-soft, #6B6B66); padding: 30px 0; text-align: center; line-height: 1.7; }
     .empty strong { color: var(--ink, #1C1C1C); font-size: 16px; }
@@ -109,7 +118,10 @@ export class FoundrInsights extends LitElement {
        share of the total, which the always-visible label doesn't. */
     .bar-tooltip {
       position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-      background: var(--ink, #1C1C1C); color: #fff; font-size: 11.5px; font-weight: 500;
+      /* Fixed near-black, not var(--ink): that token flips to a light
+         shade in Dark/Slate for body-text readability, which would make
+         this chip near-white behind its own white text in those themes. */
+      background: #1C1C1C; color: #fff; font-size: 11.5px; font-weight: 500;
       padding: 5px 10px; border-radius: 8px; white-space: nowrap;
       opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 2;
     }
@@ -120,7 +132,12 @@ export class FoundrInsights extends LitElement {
     .chart-hit-area { fill: transparent; cursor: crosshair; }
     .guide-line { stroke: var(--ink-soft, #6B6B66); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; pointer-events: none; }
     .hover-point { fill: var(--forest, #2D4A3E); stroke: var(--surface, #FAFAF7); stroke-width: 2; pointer-events: none; }
-    .tooltip-box { fill: var(--ink, #1C1C1C); pointer-events: none; }
+    /* Always a fixed near-black chip, not var(--ink): --ink is the body
+       text color, which flips to a light shade in Dark/Slate so text
+       stays readable on their dark backgrounds. Tying the tooltip's own
+       background to that same token made it go near-white in exactly
+       those two themes, right when it's paired with white tooltip text. */
+    .tooltip-box { fill: #1C1C1C; pointer-events: none; }
     .tooltip-text { fill: #fff; font-family: var(--font-body, sans-serif); pointer-events: none; }
     .tooltip-text.label { font-size: 9px; opacity: 0.75; }
     .tooltip-text.value { font-size: 11px; font-weight: 600; }

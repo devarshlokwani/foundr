@@ -194,13 +194,22 @@ export class FoundrDashboard extends LitElement {
     .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .greeting-sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0 0 28px; }
+    /* Elevated "shadow, not just a border" treatment, matching Margins'
+       range-select for consistency between the two pages. */
     .range-select {
-      font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink, #1C1C1C);
-      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
-      border-radius: var(--radius-pill, 999px); padding: 9px 16px; cursor: pointer;
+      font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 14px); padding: 11px 40px 11px 16px; cursor: pointer;
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px;
+      background-repeat: no-repeat; background-position: right 16px center;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .range-select:hover { border-color: var(--sage, #8AAF9A); }
+    .range-select:focus {
+      outline: none; border-color: var(--forest, #2D4A3E);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)), 0 0 0 3px rgba(45,74,62,0.1);
     }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }

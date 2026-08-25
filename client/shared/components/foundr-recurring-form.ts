@@ -225,8 +225,10 @@ export class FoundrRecurringForm extends LitElement {
     button.cancel {
       flex: 1; padding: 13px; border-radius: var(--radius-input, 14px); border: 1px solid var(--line, #E2DFD7);
       background: transparent; cursor: pointer; font-family: inherit; font-size: 15px; color: var(--ink, #1C1C1C);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    button.cancel:hover { background: rgba(45,74,62,0.05); }
+    button.cancel:hover { background: rgba(45,74,62,0.05); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
+    button.cancel:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     button.save {
       flex: 2; padding: 13px; border-radius: var(--radius-input, 14px); border: none;
       background: var(--forest, #2D4A3E); color: #fff; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 500;

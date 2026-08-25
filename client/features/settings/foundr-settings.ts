@@ -12,7 +12,7 @@ import { CURRENCIES, formatMoney, setCurrency, type CurrencyCode } from "../../s
 import { THEME_OPTIONS, type ThemeCode } from "../../shared/lib/theme";
 import type { UserSettings, Business } from "../../shared/lib/types";
 import { resolveActiveBusiness, createBusiness, setActiveBusiness, renameBusiness, setBusinessCurrency, deleteBusiness, deleteBlockedReason } from "../../shared/lib/business";
-import { fetchActivity } from "../../shared/lib/activity";
+import { fetchActivity, timeAgo, exactTime, cleanSummary, canUndoActivity, undoActivity } from "../../shared/lib/activity";
 import type { ActivityLogEntry } from "../../shared/lib/types";
 import { checkSessionFreshness } from "../../shared/lib/session-guard";
 import { startTour } from "../../shared/lib/tour";
@@ -25,7 +25,11 @@ import "../../shared/components/foundr-trash-list";
 import "../../shared/components/foundr-import-panel";
 
 type Gender = UserSettings["gender"];
-type Section = "general" | "profile" | "security" | "startups" | "recurring" | "trash" | "activity" | "migrate";
+type Section = "general" | "profile" | "security" | "startups" | "data";
+// Recurring rules, trash, the activity log, and migrate are all founder
+// "data tools" rather than account preferences, so they live grouped under
+// one Data section instead of each getting its own top-level nav slot.
+type DataSubsection = "recurring" | "trash" | "activity" | "migrate";
 
 const ACTIVITY_PAGE_SIZE = 20;
 
@@ -47,10 +51,14 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: "profile", label: "Profile", icon: "ti-user" },
   { key: "security", label: "Security", icon: "ti-shield-lock" },
   { key: "startups", label: "Startups", icon: "ti-building-store" },
-  { key: "recurring", label: "Recurring", icon: "ti-repeat" },
-  { key: "trash", label: "Trash", icon: "ti-trash" },
-  { key: "activity", label: "Activity", icon: "ti-history" },
-  { key: "migrate", label: "Migrate", icon: "ti-upload" },
+  { key: "data", label: "Data", icon: "ti-database" },
+];
+
+const DATA_SUBSECTIONS: { key: DataSubsection; label: string }[] = [
+  { key: "recurring", label: "Recurring" },
+  { key: "trash", label: "Trash" },
+  { key: "activity", label: "Activity" },
+  { key: "migrate", label: "Migrate" },
 ];
 
 const NAV_ITEM_HEIGHT = 44;
@@ -70,6 +78,7 @@ const NAV_ITEM_GAP = 6;
 export class FoundrSettings extends LitElement {
   @state() private loading = true;
   @state() private section: Section = "general";
+  @state() private dataSubsection: DataSubsection = "recurring";
   @state() private comingSoonOpen = false;
 
   // General
@@ -105,6 +114,14 @@ export class FoundrSettings extends LitElement {
   @state() private startupError = "";
   @state() private renamingId = "";
   @state() private renameValue = "";
+  // Deleting a startup destroys its own record (not the ledger data
+  // inside it, which has to already be empty to get here, but the
+  // startup itself, its categories, recurring rules, and all history)
+  // with no undo, same permanence as the trash's "delete forever": it
+  // gets the same type-DELETE-to-confirm friction instead of a plain
+  // confirm() a stray click could dismiss without reading.
+  @state() private deleteStartupTarget: Business | null = null;
+  @state() private deleteStartupConfirmText = "";
 
   // Activity, lazy-loaded (only fetched once the tab is actually opened).
   @state() private activityItems: ActivityLogEntry[] = [];
@@ -112,6 +129,7 @@ export class FoundrSettings extends LitElement {
   @state() private activityError = "";
   @state() private activityPage = 1;
   @state() private activityTotal = 0;
+  @state() private activityUndoingId: string | null = null;
   private _activityLoadedFor = "";
 
   connectedCallback(): void {
@@ -141,9 +159,14 @@ export class FoundrSettings extends LitElement {
       this.gender = settings.gender ?? "";
     }
 
-    const requestedSection = new URLSearchParams(window.location.search).get("section");
+    const params = new URLSearchParams(window.location.search);
+    const requestedSection = params.get("section");
     if (requestedSection && SECTIONS.some((s) => s.key === requestedSection)) {
       this.section = requestedSection as Section;
+    }
+    const requestedSub = params.get("sub");
+    if (requestedSub && DATA_SUBSECTIONS.some((s) => s.key === requestedSub)) {
+      this.dataSubsection = requestedSub as DataSubsection;
     }
 
     try {
@@ -151,7 +174,7 @@ export class FoundrSettings extends LitElement {
       this.businesses = businesses;
       this.activeBusinessId = activeId;
       this.currency = (businesses.find((b) => b._id === activeId)?.currency as CurrencyCode) ?? "AUD";
-      if (this.section === "activity") await this._loadActivity(1);
+      if (this.section === "data" && this.dataSubsection === "activity") await this._loadActivity(1);
     } catch {
       this.businesses = [];
     }
@@ -163,6 +186,13 @@ export class FoundrSettings extends LitElement {
 
   private _selectSection(key: Section): void {
     this.section = key;
+    if (key === "data" && this.dataSubsection === "activity" && this._activityLoadedFor !== this.activeBusinessId) {
+      void this._loadActivity(1);
+    }
+  }
+
+  private _selectDataSub(key: DataSubsection): void {
+    this.dataSubsection = key;
     if (key === "activity" && this._activityLoadedFor !== this.activeBusinessId) {
       void this._loadActivity(1);
     }
@@ -185,15 +215,17 @@ export class FoundrSettings extends LitElement {
     }
   }
 
-  private _timeAgo(iso: string): string {
-    const ms = Date.now() - new Date(iso).getTime();
-    const mins = Math.round(ms / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.round(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.round(hours / 24);
-    return `${days}d ago`;
+  private async _undoActivity(a: ActivityLogEntry): Promise<void> {
+    this.activityUndoingId = a._id;
+    this.activityError = "";
+    try {
+      await undoActivity(a, this.activeBusinessId);
+      await this._loadActivity(this.activityPage);
+    } catch (err) {
+      this.activityError = err instanceof Error ? err.message : "Couldn't undo that.";
+    } finally {
+      this.activityUndoingId = null;
+    }
   }
 
   private _actionIcon(action: ActivityLogEntry["action"]): string {
@@ -210,7 +242,7 @@ export class FoundrSettings extends LitElement {
     this.activeBusinessId = id;
     this.currency = (this.businesses.find((b) => b._id === id)?.currency as CurrencyCode) ?? "AUD";
     await setActiveBusiness(id);
-    if (this.section === "activity") void this._loadActivity(1);
+    if (this.section === "data" && this.dataSubsection === "activity") void this._loadActivity(1);
   }
 
   private _startRename(b: Business): void {
@@ -243,10 +275,28 @@ export class FoundrSettings extends LitElement {
     }
   }
 
-  /** Empty businesses only: the backend refuses if it still has tracked entries. */
-  private async _deleteStartup(b: Business): Promise<void> {
+  // ---- Delete startup confirmation (type DELETE to confirm) ----
+
+  private _openDeleteStartupConfirm(b: Business): void {
     if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
-    if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
+    this.deleteStartupTarget = b;
+    this.deleteStartupConfirmText = "";
+  }
+
+  private _closeDeleteStartupConfirm(): void {
+    this.deleteStartupTarget = null;
+    this.deleteStartupConfirmText = "";
+  }
+
+  private get _deleteStartupConfirmed(): boolean {
+    return this.deleteStartupConfirmText.trim().toUpperCase() === "DELETE";
+  }
+
+  /** Empty businesses only: the backend refuses if it still has tracked entries. */
+  private async _confirmDeleteStartup(): Promise<void> {
+    if (!this._deleteStartupConfirmed || !this.deleteStartupTarget) return;
+    const b = this.deleteStartupTarget;
+    this._closeDeleteStartupConfirm();
 
     this.startupSaving = true;
     this.startupError = "";
@@ -260,6 +310,10 @@ export class FoundrSettings extends LitElement {
     }
   }
 
+  // Adds the startup to the list without switching to it: a founder adding
+  // a second or third business is very often still working in the one
+  // they're already in, so quietly making the new (empty) one active would
+  // be more disruptive than helpful. They hit "Switch" when they're ready.
   private async _addStartup(e: Event): Promise<void> {
     e.preventDefault();
     const name = this.newStartupName.trim();
@@ -273,7 +327,6 @@ export class FoundrSettings extends LitElement {
       const business = await createBusiness(name);
       this.businesses = [...this.businesses, business];
       this.newStartupName = "";
-      await this._switchBusiness(business._id);
     } catch (err) {
       this.startupError = err instanceof Error ? err.message : "Couldn't add that startup.";
     } finally {
@@ -448,6 +501,8 @@ export class FoundrSettings extends LitElement {
     .ti-history:before { content: "\\ebea"; }
     .ti-repeat:before { content: "\\eb72"; }
     .ti-upload:before { content: "\\eb47"; }
+    .ti-database:before { content: "\\ea88"; }
+    .ti-alert-triangle:before { content: "\\ea06"; }
     button, select, input { font-family: inherit; }
     button { cursor: pointer; border: none; }
 
@@ -476,6 +531,27 @@ export class FoundrSettings extends LitElement {
     .nav-item:hover:not(.active) { color: var(--ink, #1C1C1C); }
 
     .settings-content { flex: 1; min-width: 0; }
+
+    /* Same sliding-pill sub-tab language as Margins' section-tabs, for the
+       four data tools (Recurring/Trash/Activity/Migrate) grouped inside
+       the Data section. */
+    .data-tabs {
+      position: relative; display: flex; background: var(--surface-alt, #F2EFE8);
+      padding: 4px; border-radius: var(--radius-pill, 999px); width: fit-content; margin-bottom: 20px;
+    }
+    .data-indicator {
+      position: absolute; top: 4px; left: 4px; bottom: 4px; width: var(--tab-w, 110px);
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-pill, 999px);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
+      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    .data-tab {
+      position: relative; z-index: 1; width: var(--tab-w, 110px); padding: 8px 0; text-align: center;
+      border-radius: var(--radius-pill, 999px); background: transparent; border: none;
+      font-size: 13.5px; font-weight: 500; color: var(--ink-soft, #6B6B66); transition: color 0.25s ease;
+    }
+    .data-tab.active { color: var(--ink, #1C1C1C); }
 
     .card { background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px); padding: 24px; border: 0.5px solid var(--line, #E2DFD7); }
     .card + .card { margin-top: 16px; }
@@ -531,8 +607,10 @@ export class FoundrSettings extends LitElement {
     .btn-outline-danger {
       background: transparent; color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3);
       padding: 9px 18px; border-radius: var(--radius-pill, 999px); font-size: 13.5px; font-weight: 500;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
     }
-    .btn-outline-danger:hover { background: var(--danger-bg, #FBEAE9); }
+    .btn-outline-danger:hover { background: var(--danger-bg, #FBEAE9); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--danger-border, #F0C5C3); }
+    .btn-outline-danger:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--danger, #A8302B); }
 
     .hint { font-size: 13px; color: var(--ink-soft, #6B6B66); margin: 14px 0 0; line-height: 1.5; }
     .code-row { display: flex; gap: 10px; margin-top: 12px; align-items: center; }
@@ -556,8 +634,12 @@ export class FoundrSettings extends LitElement {
     .icon-btn {
       background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
       width: 30px; height: 30px; display: grid; place-items: center; color: var(--ink-soft, #6B6B66); font-size: 14px;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .icon-btn.danger:hover { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); }
+    .icon-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .icon-btn:active:not(:disabled) { transform: translate(0, 0) scale(0.94); box-shadow: none; }
+    .icon-btn.danger:hover:not(:disabled) { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border-color: var(--danger-border, #F0C5C3); box-shadow: 2px 2px 0 var(--danger-border, #F0C5C3); }
+    .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .new-email-row { display: flex; gap: 10px; margin-top: 14px; }
     .new-email-row .input-wrap { position: relative; flex: 1; }
     .new-email-row .input-wrap .ti-mail {
@@ -587,9 +669,53 @@ export class FoundrSettings extends LitElement {
     .startup-row {
       display: flex; align-items: center; gap: 12px;
       padding: 10px 14px; background: var(--surface-alt, #F2EFE8); border: 1px solid transparent;
-      border-radius: 14px; font-size: 14px; transition: border-color 0.15s ease;
+      border-radius: 14px; font-size: 14px; transition: border-color 0.15s ease, opacity 0.15s ease, background 0.15s ease;
     }
     .startup-row.active { border-color: var(--forest, #2D4A3E); }
+
+    /* Delete-startup confirmation: same type-DELETE-to-confirm friction
+       as the trash's permanent-delete modal, since deleting a startup is
+       just as irreversible. */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: var(--overlay, rgba(28,28,28,0.5));
+      display: flex; align-items: center; justify-content: center; z-index: 250; padding: 20px;
+    }
+    .confirm-modal {
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
+      width: 100%; max-width: 400px; padding: 28px; box-shadow: 0 24px 60px -20px rgba(31,51,41,0.4);
+      font-family: var(--font-body, "Inter", sans-serif); color: var(--ink, #1C1C1C); text-align: center;
+    }
+    .confirm-icon {
+      width: 52px; height: 52px; border-radius: 14px; background: var(--danger-bg, #FBEAE9);
+      color: var(--danger, #A8302B); display: grid; place-items: center; font-size: 24px; margin: 0 auto 16px;
+    }
+    .confirm-modal h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+    .confirm-modal p { font-size: 14px; color: var(--ink-soft, #6B6B66); line-height: 1.5; margin: 0 0 20px; }
+    .confirm-label { display: block; font-size: 13px; margin-bottom: 8px; text-align: left; }
+    .confirm-label strong { letter-spacing: 0.04em; }
+    .confirm-input {
+      width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1.5px solid var(--line, #E2DFD7); border-radius: var(--radius-input, 14px);
+      color: var(--ink, #1C1C1C); text-align: center; letter-spacing: 0.08em; font-weight: 600;
+    }
+    .confirm-input:focus { outline: none; border-color: var(--danger, #A8302B); box-shadow: 0 0 0 3px var(--danger-bg, #FBEAE9); }
+    .confirm-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-cancel-delete {
+      flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: 1px solid var(--line, #E2DFD7);
+      background: transparent; color: var(--ink, #1C1C1C); font-size: 14.5px;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-cancel-delete:hover { background: rgba(45,74,62,0.05); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
+    .btn-cancel-delete:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
+    .btn-confirm-delete {
+      flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: none;
+      background: var(--danger, #A8302B); color: #fff; font-size: 14.5px; font-weight: 500;
+      transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-confirm-delete:hover:not(:disabled) { background: #8A281F; transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--danger-border, #F0C5C3); }
+    .btn-confirm-delete:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 #8A281F; }
+    .btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
+
     .startup-icon {
       width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
       background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E);
@@ -614,9 +740,10 @@ export class FoundrSettings extends LitElement {
     .btn-switch {
       background: transparent; color: var(--forest, #2D4A3E); border: 1px solid var(--line, #E2DFD7);
       padding: 6px 14px; border-radius: var(--radius-pill, 999px); font-size: 12.5px; font-weight: 500;
-      flex-shrink: 0; transition: background 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0; transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .btn-switch:hover { background: var(--sage-soft, #DDE7E0); border-color: var(--forest, #2D4A3E); }
+    .btn-switch:hover { background: var(--sage-soft, #DDE7E0); border-color: var(--forest, #2D4A3E); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .btn-switch:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .startup-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .startup-row.renaming { gap: 10px; }
     .rename-input {
@@ -634,10 +761,24 @@ export class FoundrSettings extends LitElement {
     }
     .activity-info { flex: 1; min-width: 0; }
     .activity-summary { font-weight: 500; }
-    .activity-time { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin-top: 2px; white-space: nowrap; }
+    .activity-time { text-align: right; white-space: nowrap; flex-shrink: 0; }
+    .activity-time .rel { font-size: 12.5px; color: var(--ink-soft, #6B6B66); }
+    .activity-time .exact { font-size: 11px; color: var(--ink-soft, #6B6B66); opacity: 0.75; margin-top: 1px; }
+    .activity-undo-btn {
+      background: transparent; border: 1px solid var(--line, #E2DFD7); color: var(--forest, #2D4A3E);
+      font-size: 12.5px; font-weight: 500; padding: 6px 12px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .activity-undo-btn:hover:not(:disabled) { background: var(--sage-soft, #DDE7E0); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .activity-undo-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
+    .activity-undo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .activity-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; font-size: 13px; color: var(--ink-soft, #6B6B66); }
-    .activity-page-btn { background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--ink, #1C1C1C); }
-    .activity-page-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); }
+    .activity-page-btn {
+      background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--ink, #1C1C1C);
+      transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .activity-page-btn:hover:not(:disabled) { background: rgba(45,74,62,0.06); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .activity-page-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .activity-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     @media (max-width: 720px) {
@@ -886,7 +1027,7 @@ export class FoundrSettings extends LitElement {
                       <button
                         class="icon-btn danger"
                         title=${deleteBlockedReason(this.businesses, b._id, this.activeBusinessId) || "Delete"}
-                        @click=${() => this._deleteStartup(b)}
+                        @click=${() => this._openDeleteStartupConfirm(b)}
                         ?disabled=${Boolean(deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) || this.startupSaving}
                       >
                         <i class="ti ti-trash" aria-hidden="true"></i>
@@ -924,6 +1065,34 @@ export class FoundrSettings extends LitElement {
             <div class="desc">A guided walkthrough of what each part of Foundr does.</div>
           </div>
           <button class="btn-save-form" @click=${() => startTour()}>Launch tour</button>
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderDeleteStartupConfirm(): TemplateResult {
+    if (!this.deleteStartupTarget) return html``;
+    const name = this.deleteStartupTarget.name;
+    const confirmed = this._deleteStartupConfirmed;
+    return html`
+      <div class="confirm-overlay" @click=${(e: Event) => { if (e.target === e.currentTarget) this._closeDeleteStartupConfirm(); }}>
+        <div class="confirm-modal">
+          <div class="confirm-icon"><i class="ti ti-alert-triangle" aria-hidden="true"></i></div>
+          <h2>Delete this startup?</h2>
+          <p>This will permanently delete "${name}", including its categories, recurring rules, and history. This can't be undone.</p>
+          <label class="confirm-label" for="deleteStartupConfirm">Type <strong>DELETE</strong> to confirm</label>
+          <input
+            id="deleteStartupConfirm" class="confirm-input" type="text" autocomplete="off" placeholder="DELETE"
+            .value=${this.deleteStartupConfirmText}
+            @input=${(e: Event) => { this.deleteStartupConfirmText = (e.target as HTMLInputElement).value; }}
+            @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter" && confirmed) void this._confirmDeleteStartup(); }}
+          />
+          <div class="confirm-actions">
+            <button class="btn-cancel-delete" @click=${this._closeDeleteStartupConfirm}>Cancel</button>
+            <button class="btn-confirm-delete" ?disabled=${!confirmed} @click=${this._confirmDeleteStartup}>
+              Delete forever
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -973,9 +1142,17 @@ export class FoundrSettings extends LitElement {
                       <div class="activity-row">
                         <span class="activity-icon"><i class="ti ${this._actionIcon(a.action)}" aria-hidden="true"></i></span>
                         <div class="activity-info">
-                          <div class="activity-summary">${a.summary}</div>
+                          <div class="activity-summary">${cleanSummary(a.summary)}</div>
                         </div>
-                        <div class="activity-time">${this._timeAgo(a.createdAt)}</div>
+                        <div class="activity-time">
+                          <div class="rel">${timeAgo(a.createdAt)}</div>
+                          <div class="exact">${exactTime(a.createdAt)}</div>
+                        </div>
+                        ${canUndoActivity(a)
+                          ? html`<button class="activity-undo-btn" @click=${() => this._undoActivity(a)} ?disabled=${this.activityUndoingId === a._id}>
+                              ${this.activityUndoingId === a._id ? "Undoing…" : "Undo"}
+                            </button>`
+                          : ""}
                       </div>
                     `
                   )}
@@ -1009,6 +1186,32 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
+  private get _dataSubIndex(): number {
+    return DATA_SUBSECTIONS.findIndex((s) => s.key === this.dataSubsection);
+  }
+
+  private _renderData(): TemplateResult {
+    let sub: TemplateResult;
+    if (this.dataSubsection === "recurring") sub = this._renderRecurring();
+    else if (this.dataSubsection === "trash") sub = this._renderTrash();
+    else if (this.dataSubsection === "activity") sub = this._renderActivity();
+    else sub = this._renderMigrate();
+
+    return html`
+      <div class="data-tabs" style="--tab-w: 110px">
+        <div class="data-indicator" style="transform: translateX(${this._dataSubIndex * 110}px)"></div>
+        ${DATA_SUBSECTIONS.map(
+          (s) => html`
+            <button class="data-tab ${this.dataSubsection === s.key ? "active" : ""}" @click=${() => this._selectDataSub(s.key)}>
+              ${s.label}
+            </button>
+          `
+        )}
+      </div>
+      ${sub}
+    `;
+  }
+
   render(): TemplateResult {
     let content: TemplateResult = html``;
     if (!this.loading) {
@@ -1016,10 +1219,7 @@ export class FoundrSettings extends LitElement {
       else if (this.section === "profile") content = this._renderProfile();
       else if (this.section === "security") content = this._renderSecurity();
       else if (this.section === "startups") content = this._renderStartups();
-      else if (this.section === "recurring") content = this._renderRecurring();
-      else if (this.section === "trash") content = this._renderTrash();
-      else if (this.section === "activity") content = this._renderActivity();
-      else content = this._renderMigrate();
+      else content = this._renderData();
     }
 
     return html`
@@ -1048,6 +1248,7 @@ export class FoundrSettings extends LitElement {
         ?open=${this.comingSoonOpen}
         @close=${() => { this.comingSoonOpen = false; }}
       ></foundr-coming-soon-modal>
+      ${this._renderDeleteStartupConfirm()}
       <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }

@@ -402,8 +402,10 @@ export class FoundrOnboarding extends LitElement {
     .btn-back {
       display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: var(--radius-pill, 999px);
       border: 1px solid var(--line, #E2DFD7); background: transparent; color: var(--ink-soft, #6B6B66); font-size: 13.5px; font-weight: 500;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease, color 0.2s ease;
     }
-    .btn-back:hover:not(:disabled) { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); }
+    .btn-back:hover:not(:disabled) { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); transform: translate(-2px,-2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .btn-back:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .btn-back:disabled { opacity: 0; pointer-events: none; }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 7px; padding: 11px 22px; border-radius: var(--radius-pill, 999px);

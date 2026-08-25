@@ -21,11 +21,11 @@ const STORAGE_KEY = "foundr-theme";
  * Shared by the Settings page and the profile menu's quick switcher. */
 export const THEME_OPTIONS: { code: ThemeCode; label: string; desc: string; swatch: [string, string, string] }[] = [
   { code: "light", label: "Original", desc: "Foundr's original look", swatch: ["#ECEAE3", "#2D4A3E", "#8AAF9A"] },
-  { code: "dark", label: "Dark", desc: "Easy on the eyes", swatch: ["#14161A", "#4C8267", "#7FB69B"] },
+  { code: "dark", label: "Dark", desc: "Easy on the eyes", swatch: ["#14161A", "#3D6B54", "#7FB69B"] },
   { code: "royal", label: "Royal", desc: "Purple and gold", swatch: ["#F4F0FA", "#4B2E83", "#C9A227"] },
   { code: "ocean", label: "Ocean", desc: "Cool blue and teal", swatch: ["#EAF1F3", "#1F5A6E", "#6FA8B8"] },
   { code: "sunset", label: "Sunset", desc: "Warm terracotta", swatch: ["#FBF0E6", "#B5502E", "#E3A85C"] },
-  { code: "slate", label: "Slate", desc: "Dark and monochrome", swatch: ["#15181D", "#5B7A99", "#8B9BAE"] },
+  { code: "slate", label: "Slate", desc: "Dark and monochrome", swatch: ["#15181D", "#456885", "#8B9BAE"] },
 ];
 
 export function applyTheme(theme: ThemeCode): void {

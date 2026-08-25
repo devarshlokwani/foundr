@@ -1,5 +1,11 @@
 import { apiGet, apiPost, apiDelete } from "./api";
-import type { UnifiedEntry, TrashedEntry } from "./types";
+import type { UnifiedEntry, TrashedEntry, EntriesPage } from "./types";
+
+// foundr-trash-list is a self-contained "show me everything" widget, not a
+// paginated table, so this asks the (paginated) /api/trash route for one
+// big page rather than wiring up page controls it doesn't have room for.
+// 200 is the server's own MAX_PAGE_SIZE (see server/lib/entries.ts).
+const TRASH_LIST_PAGE_SIZE = 200;
 
 /**
  * Deleting an entry (see foundr-transactions.ts's _delete) is soft: the
@@ -20,7 +26,10 @@ function collectionPath(e: UnifiedEntry): string {
 }
 
 export async function fetchTrash(businessId: string): Promise<TrashedEntry[]> {
-  return apiGet<TrashedEntry[]>(`/trash?businessId=${businessId}`);
+  // /api/trash always returns a paginated { items, total, page, pageSize }
+  // object (same shape as /api/entries), never a bare array.
+  const res = await apiGet<EntriesPage>(`/trash?businessId=${businessId}&pageSize=${TRASH_LIST_PAGE_SIZE}`);
+  return res.items as TrashedEntry[];
 }
 
 export async function restoreEntry(e: UnifiedEntry, businessId: string): Promise<void> {

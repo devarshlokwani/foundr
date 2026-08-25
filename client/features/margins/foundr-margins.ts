@@ -257,9 +257,27 @@ export class FoundrMargins extends LitElement {
     .ti-report-money:before { content: "\\eecd"; }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 28px; }
-    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+    /* No flex-wrap here on purpose: wrapping based on how much content
+       happens to be in head-actions meant Margins (select + 2 export
+       buttons) wrapped onto its own row at a viewport width where
+       Balance Sheet (2 buttons only) still fit on the title's row,
+       leaving the two tabs' headers at different heights. Capping the
+       title block's width instead lets its own subtitle wrap onto a
+       second line, freeing enough room for head-actions to stay on the
+       same row across a much wider range of widths, identically for
+       every tab (plenty of room even at typical split-screen widths).
+       Only genuinely narrow viewports fall back to a stacked layout,
+       via the deliberate breakpoint below, rather than an implicit one
+       that fires at a different width per tab. */
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+    .title-block { min-width: 0; max-width: 420px; }
     .greeting { font-family: var(--font-display, serif); font-weight: 400; font-size: 30px; margin: 0 0 4px; }
     .greeting-sub { font-size: 15px; color: var(--ink-soft, #6B6B66); margin: 0; }
+    @media (max-width: 620px) {
+      .page-head { flex-direction: column; align-items: flex-start; }
+      .title-block { max-width: none; }
+      .head-actions { margin-left: 0; flex-wrap: wrap; }
+    }
 
     .section-tabs {
       position: relative; display: flex; background: var(--surface-alt, #F2EFE8);
@@ -280,23 +298,47 @@ export class FoundrMargins extends LitElement {
     .section-tab.active { color: var(--ink, #1C1C1C); }
 
     button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
-    .head-actions { display: flex; align-items: center; gap: 10px; }
+    /* margin-left: auto pushes head-actions flush against page-head's
+       right edge even when page-head wraps onto two lines (the title's
+       own row, then this one alone). justify-content: space-between on
+       the parent only right-aligns a lone wrapped item by coincidence of
+       having nothing else on its line, it doesn't reliably anchor it, so
+       without this the actions row was landing flush left on whichever
+       tab happened to wrap at a given width and flush right on the other. */
+    .head-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .export-group { display: flex; align-items: center; gap: 10px; }
+    /* Elevated "shadow, not just a border" treatment for filter/sort
+       dropdowns, replacing the old cramped pill-with-flat-border look. */
     .range-select {
-      font-family: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink, #1C1C1C);
-      background: var(--surface, #FAFAF7); border: 0.5px solid var(--line, #E2DFD7);
-      border-radius: var(--radius-pill, 999px); padding: 9px 16px; cursor: pointer;
+      font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 14px); padding: 11px 40px 11px 16px; cursor: pointer;
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 14px center; padding-right: 32px;
+      background-repeat: no-repeat; background-position: right 16px center;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .range-select:hover { border-color: var(--sage, #8AAF9A); }
+    .range-select:focus {
+      outline: none; border-color: var(--forest, #2D4A3E);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)), 0 0 0 3px rgba(45,74,62,0.1);
     }
     .card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .granularity-select {
-      font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink, #1C1C1C);
-      background: var(--surface-alt, #F2EFE8); border: 0.5px solid var(--line, #E2DFD7);
-      border-radius: var(--radius-pill, 999px); padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink, #1C1C1C);
+      background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7);
+      border-radius: var(--radius-input, 12px); padding: 8px 30px 8px 12px; cursor: pointer; flex-shrink: 0;
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18));
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6B66' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center; padding-right: 26px;
+      background-repeat: no-repeat; background-position: right 12px center;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .granularity-select:hover { border-color: var(--sage, #8AAF9A); }
+    .granularity-select:focus {
+      outline: none; border-color: var(--forest, #2D4A3E);
+      box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)), 0 0 0 3px rgba(45,74,62,0.1);
     }
     .export-btn {
       background: var(--forest, #2D4A3E); color: #fff; font-size: 14px; font-weight: 500;
@@ -309,7 +351,8 @@ export class FoundrMargins extends LitElement {
     .export-btn.outline {
       background: transparent; color: var(--ink, #1C1C1C); border: 1px solid var(--line, #E2DFD7);
     }
-    .export-btn.outline:hover { background: rgba(45,74,62,0.05); box-shadow: none; transform: none; }
+    .export-btn.outline:hover { background: rgba(45,74,62,0.05); transform: translate(-5px, -5px); box-shadow: 5px 5px 0 var(--sage, #8AAF9A); }
+    .export-btn.outline:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
 
     .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
     .kpi-grid.three { grid-template-columns: repeat(3, 1fr); }
@@ -347,7 +390,10 @@ export class FoundrMargins extends LitElement {
     .bar-fill.rev { background: var(--forest, #2D4A3E); }
     .bar-tooltip {
       position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-      background: var(--ink, #1C1C1C); color: #fff; font-size: 11.5px; font-weight: 500;
+      /* Fixed near-black, not var(--ink): that token flips to a light
+         shade in Dark/Slate for body-text readability, which would make
+         this chip near-white behind its own white text in those themes. */
+      background: #1C1C1C; color: #fff; font-size: 11.5px; font-weight: 500;
       padding: 5px 10px; border-radius: 8px; white-space: nowrap;
       opacity: 0; pointer-events: none; transition: opacity 0.15s ease; z-index: 2;
     }
@@ -369,7 +415,12 @@ export class FoundrMargins extends LitElement {
     .hover-point { stroke: var(--surface, #FAFAF7); stroke-width: 2; pointer-events: none; }
     .hover-point.rev { fill: var(--forest, #2D4A3E); }
     .hover-point.exp { fill: var(--danger, #D9534F); }
-    .tooltip-box { fill: var(--ink, #1C1C1C); pointer-events: none; }
+    /* Always a fixed near-black chip, not var(--ink): --ink is the body
+       text color, which flips to a light shade in Dark/Slate so text
+       stays readable on their dark backgrounds. Tying the tooltip's own
+       background to that same token made it go near-white in exactly
+       those two themes, right when it's paired with white tooltip text. */
+    .tooltip-box { fill: #1C1C1C; pointer-events: none; }
     .tooltip-text { fill: #fff; font-family: var(--font-body, sans-serif); pointer-events: none; }
     .tooltip-text.label { font-size: 9px; opacity: 0.75; }
     .tooltip-text.value { font-size: 10.5px; font-weight: 600; }
@@ -495,14 +546,20 @@ export class FoundrMargins extends LitElement {
     }
   `;
 
-  // The header shows immediately: title and subtitle are always static,
-  // the tab switcher and export button only make sense once there's
-  // something to show/export.
+  // The header shows immediately: title and subtitle are always static.
+  // The controls key off whether we've ever had real data to show/export,
+  // not the transient `loading` flag: gating on `loading` was tearing the
+  // <select> down and rebuilding it on every range change (since a range
+  // change sets loading briefly), and rebuilding a <select> makes the
+  // browser lose track of which <option> matched the new `.value` (it
+  // gets set before the fresh <option> elements are attached), so the
+  // dropdown visually snapped back to the first option even though the
+  // underlying range, and the data, had actually changed correctly.
   private _renderHeader(): TemplateResult {
-    const ready = !this.loading && !this.error && !this.isEmpty;
+    const ready = !this.error && !this.isEmpty;
     return html`
       <div class="page-head">
-        <div>
+        <div class="title-block">
           <h1 class="greeting">Reports</h1>
           <p class="greeting-sub">Margins and balance sheet, generated automatically from what you track.</p>
         </div>
@@ -518,12 +575,14 @@ export class FoundrMargins extends LitElement {
                   : ""}
                 ${this.section !== "trends"
                   ? html`
-                      <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
-                        <i class="ti ti-download" aria-hidden="true"></i>Export CSV
-                      </button>
-                      <button class="export-btn outline" @click=${this._exportPdf}>
-                        <i class="ti ti-file-type-pdf" aria-hidden="true"></i>Export PDF
-                      </button>
+                      <div class="export-group">
+                        <button class="export-btn" @click=${this.section === "margins" ? this._exportCsv : this._exportBalanceSheetCsv}>
+                          <i class="ti ti-download" aria-hidden="true"></i>Export CSV
+                        </button>
+                        <button class="export-btn outline" @click=${this._exportPdf}>
+                          <i class="ti ti-file-type-pdf" aria-hidden="true"></i>Export PDF
+                        </button>
+                      </div>
                     `
                   : ""}
               </div>

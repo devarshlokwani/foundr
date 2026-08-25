@@ -244,7 +244,8 @@ export class FoundrTourOverlay extends LitElement {
       transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease, color 0.18s ease, border-color 0.18s ease;
     }
     .back-btn { background: transparent; border: 1px solid var(--line, #E2DFD7); color: var(--ink-soft, #6B6B66); }
-    .back-btn:hover:not(:disabled) { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); }
+    .back-btn:hover:not(:disabled) { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .back-btn:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
     .back-btn:disabled { opacity: 0; pointer-events: none; }
     .next-btn { background: var(--forest, #2D4A3E); color: #fff; border: none; }
     .next-btn:hover { background: var(--forest-deep, #1F3329); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }

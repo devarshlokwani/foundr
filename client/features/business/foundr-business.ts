@@ -34,6 +34,11 @@ export class FoundrBusiness extends LitElement {
   @state() private error = "";
   @state() private editMode = false;
   @state() private deletingId: string | null = null;
+  // Deleting a startup is exactly as irreversible here as it is from
+  // Settings → Startups (same backend route), so it gets the same
+  // type-DELETE-to-confirm friction instead of a plain confirm().
+  @state() private deleteTarget: Business | null = null;
+  @state() private deleteConfirmText = "";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -77,10 +82,26 @@ export class FoundrBusiness extends LitElement {
     }
   }
 
-  /** Empty businesses only: the backend refuses if it still has tracked entries. */
-  private async _deleteFolder(b: Business): Promise<void> {
+  private _openDeleteConfirm(b: Business): void {
     if (deleteBlockedReason(this.businesses, b._id, this.activeBusinessId)) return;
-    if (!confirm(`Delete "${b.name}"? This can't be undone.`)) return;
+    this.deleteTarget = b;
+    this.deleteConfirmText = "";
+  }
+
+  private _closeDeleteConfirm(): void {
+    this.deleteTarget = null;
+    this.deleteConfirmText = "";
+  }
+
+  private get _deleteConfirmed(): boolean {
+    return this.deleteConfirmText.trim().toUpperCase() === "DELETE";
+  }
+
+  /** Empty businesses only: the backend refuses if it still has tracked entries. */
+  private async _confirmDeleteFolder(): Promise<void> {
+    if (!this._deleteConfirmed || !this.deleteTarget) return;
+    const b = this.deleteTarget;
+    this._closeDeleteConfirm();
 
     this.deletingId = b._id;
     this.error = "";
@@ -94,6 +115,11 @@ export class FoundrBusiness extends LitElement {
     }
   }
 
+  // Creates the startup and drops it into the grid, but doesn't switch to
+  // it or navigate away: a founder adding a second or third business is
+  // very often still working in the one they're already in, so jumping
+  // them into the new (empty) one uninvited would be more disruptive than
+  // helpful. They click in when they're actually ready to.
   private async _addStartup(e: Event): Promise<void> {
     e.preventDefault();
     const name = this.newName.trim();
@@ -105,10 +131,12 @@ export class FoundrBusiness extends LitElement {
     this.error = "";
     try {
       const business = await createBusiness(name);
-      await setActiveBusiness(business._id);
-      window.location.href = "/dashboard";
+      this.businesses = [...this.businesses, business];
+      this.addingOpen = false;
+      this.newName = "";
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Couldn't create that startup.";
+    } finally {
       this.saving = false;
     }
   }
@@ -135,6 +163,7 @@ export class FoundrBusiness extends LitElement {
     .ti-pencil:before { content: "\\eb04"; }
     .ti-check:before { content: "\\ea5e"; }
     .ti-trash:before { content: "\\eb41"; }
+    .ti-alert-triangle:before { content: "\\ea06"; }
     button { font-family: inherit; cursor: pointer; border: none; }
 
     .header {
@@ -156,9 +185,11 @@ export class FoundrBusiness extends LitElement {
     .edit-toggle {
       width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; margin-top: 2px;
       background: var(--surface, #FAFAF7); border: 1px solid var(--line, #E2DFD7); color: var(--ink-soft, #6B6B66);
-      display: grid; place-items: center; font-size: 17px; transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+      display: grid; place-items: center; font-size: 17px;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .edit-toggle:hover { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); }
+    .edit-toggle:hover { background: var(--surface-alt, #F2EFE8); color: var(--ink, #1C1C1C); transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); }
+    .edit-toggle:active { transform: translate(0, 0); box-shadow: none; }
     .edit-toggle.active { background: var(--forest, #2D4A3E); border-color: var(--forest, #2D4A3E); color: #fff; }
 
     .page-area { position: relative; min-height: 320px; }
@@ -229,12 +260,54 @@ export class FoundrBusiness extends LitElement {
     }
     .btn-save-form:hover:not(:disabled) { background: var(--forest-deep, #1F3329); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
     .btn-save-form:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btn-cancel { background: transparent; border: 1px solid var(--line, #E2DFD7); color: var(--ink, #1C1C1C); padding: 10px 18px; border-radius: var(--radius-pill, 999px); font-size: 13.5px; }
+    .btn-cancel {
+      background: transparent; border: 1px solid var(--line, #E2DFD7); color: var(--ink, #1C1C1C);
+      padding: 10px 18px; border-radius: var(--radius-pill, 999px); font-size: 13.5px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.2s ease;
+    }
+    .btn-cancel:hover { background: var(--surface-alt, #F2EFE8); transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--sage, #8AAF9A); }
+    .btn-cancel:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
 
     .error-box {
       background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); border: 1px solid var(--danger-border, #F0C5C3);
       border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px;
     }
+
+    /* Delete-startup confirmation: same type-DELETE-to-confirm friction
+       as Settings → Startups and the trash's permanent-delete modal. */
+    .confirm-overlay {
+      position: fixed; inset: 0; background: var(--overlay, rgba(28,28,28,0.5));
+      display: flex; align-items: center; justify-content: center; z-index: 250; padding: 20px;
+    }
+    .confirm-modal {
+      background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px);
+      width: 100%; max-width: 400px; padding: 28px; box-shadow: 0 24px 60px -20px rgba(31,51,41,0.4);
+      font-family: var(--font-body, "Inter", sans-serif); color: var(--ink, #1C1C1C); text-align: center;
+    }
+    .confirm-icon {
+      width: 52px; height: 52px; border-radius: 14px; background: var(--danger-bg, #FBEAE9);
+      color: var(--danger, #A8302B); display: grid; place-items: center; font-size: 24px; margin: 0 auto 16px;
+    }
+    .confirm-modal h2 { font-family: var(--font-display, serif); font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+    .confirm-modal p { font-size: 14px; color: var(--ink-soft, #6B6B66); line-height: 1.5; margin: 0 0 20px; }
+    .confirm-label { display: block; font-size: 13px; margin-bottom: 8px; text-align: left; }
+    .confirm-label strong { letter-spacing: 0.04em; }
+    .confirm-input {
+      width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; font-family: inherit;
+      background: var(--input-bg, #fff); border: 1.5px solid var(--line, #E2DFD7); border-radius: var(--radius-input, 14px);
+      color: var(--ink, #1C1C1C); text-align: center; letter-spacing: 0.08em; font-weight: 600;
+    }
+    .confirm-input:focus { outline: none; border-color: var(--danger, #A8302B); box-shadow: 0 0 0 3px var(--danger-bg, #FBEAE9); }
+    .confirm-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .confirm-actions .btn-cancel { flex: 1; }
+    .btn-confirm-delete {
+      flex: 1; padding: 12px; border-radius: var(--radius-input, 14px); border: none;
+      background: var(--danger, #A8302B); color: #fff; font-size: 14.5px; font-weight: 500;
+      transition: background 0.2s ease, opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn-confirm-delete:hover:not(:disabled) { background: #8A281F; transform: translate(-3px, -3px); box-shadow: 3px 3px 0 var(--danger-border, #F0C5C3); }
+    .btn-confirm-delete:active:not(:disabled) { transform: translate(0, 0); box-shadow: 1px 1px 0 #8A281F; }
+    .btn-confirm-delete:disabled { opacity: 0.4; cursor: not-allowed; }
   `;
 
   private _renderFolder(b: Business): TemplateResult {
@@ -260,7 +333,7 @@ export class FoundrBusiness extends LitElement {
                 class="folder-delete"
                 title=${blocked || "Delete"}
                 ?disabled=${Boolean(blocked) || this.deletingId === b._id}
-                @click=${() => this._deleteFolder(b)}
+                @click=${() => this._openDeleteConfirm(b)}
               >
                 <i class="ti ti-trash" aria-hidden="true"></i>
               </button>
@@ -285,6 +358,34 @@ export class FoundrBusiness extends LitElement {
           <button type="button" class="btn-cancel" @click=${() => { this.addingOpen = false; this.newName = ""; }} ?disabled=${this.saving}>Cancel</button>
         </div>
       </form>
+    `;
+  }
+
+  private _renderDeleteConfirm(): TemplateResult {
+    if (!this.deleteTarget) return html``;
+    const name = this.deleteTarget.name;
+    const confirmed = this._deleteConfirmed;
+    return html`
+      <div class="confirm-overlay" @click=${(e: Event) => { if (e.target === e.currentTarget) this._closeDeleteConfirm(); }}>
+        <div class="confirm-modal">
+          <div class="confirm-icon"><i class="ti ti-alert-triangle" aria-hidden="true"></i></div>
+          <h2>Delete this startup?</h2>
+          <p>This will permanently delete "${name}", including its categories, recurring rules, and history. This can't be undone.</p>
+          <label class="confirm-label" for="deleteConfirm">Type <strong>DELETE</strong> to confirm</label>
+          <input
+            id="deleteConfirm" class="confirm-input" type="text" autocomplete="off" placeholder="DELETE"
+            .value=${this.deleteConfirmText}
+            @input=${(e: Event) => { this.deleteConfirmText = (e.target as HTMLInputElement).value; }}
+            @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter" && confirmed) void this._confirmDeleteFolder(); }}
+          />
+          <div class="confirm-actions">
+            <button class="btn-cancel" @click=${this._closeDeleteConfirm}>Cancel</button>
+            <button class="btn-confirm-delete" ?disabled=${!confirmed} @click=${this._confirmDeleteFolder}>
+              Delete forever
+            </button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -343,6 +444,7 @@ export class FoundrBusiness extends LitElement {
             : ""}
         </div>
       </div>
+      ${this._renderDeleteConfirm()}
       <foundr-tour-overlay></foundr-tour-overlay>
     `;
   }

@@ -47,10 +47,10 @@ export const TOUR_STEPS: TourStep[] = [
     id: "add-entry",
     path: "/dashboard",
     host: "foundr-dashboard",
-    selector: ".add-btn",
+    selector: "foundr-page-actions",
     icon: "ti-pencil-plus",
     title: "Add anything in seconds",
-    body: "Expenses, revenue, investments, draws, or debt: one button, a few fields, and your metrics update instantly.",
+    body: "Open Actions and choose Add entry: expenses, revenue, investments, draws, or debt, a few fields, and your metrics update instantly. The same menu also has Migrate, for bringing in data from wherever you tracked things before.",
   },
   {
     id: "entries",

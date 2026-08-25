@@ -45,6 +45,8 @@ export class FoundrTopbar extends LitElement {
       -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
     .ti-building-store:before { content: "\\ea4e"; }
+    .ti-settings:before { content: "\\eb20"; }
+    .ti-logout:before { content: "\\eba8"; }
     .brand-group { display: flex; align-items: center; gap: 14px; }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 19px; text-decoration: none; color: var(--ink, #1C1C1C); }
     .brand .mark {
@@ -59,15 +61,39 @@ export class FoundrTopbar extends LitElement {
     }
     .business-pill:hover { background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); }
     .topbar-right { display: flex; align-items: center; gap: 18px; }
-    .nav-link { font-size: 14px; color: var(--ink-soft, #6B6B66); text-decoration: none; }
-    .nav-link:hover { color: var(--ink, #1C1C1C); }
-    .nav-link.active { color: var(--forest, #2D4A3E); font-weight: 500; }
-    button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
-    .signout {
-      background: transparent; color: var(--ink-soft, #6B6B66); font-size: 14px;
-      padding: 8px 14px; border-radius: var(--radius-pill, 999px);
+    /* Same sliding-underline hover as the landing page's nav: a bar that
+       scales in from the left on hover (and stays fully shown, no
+       animation needed since it's already scaleX(1), for whichever page
+       is active). */
+    .nav-link { font-size: 14px; color: var(--ink-soft, #6B6B66); text-decoration: none; position: relative; transition: color 0.2s ease; }
+    .nav-link::after {
+      content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 100%;
+      background: var(--forest, #2D4A3E); border-radius: 2px;
+      transform: scaleX(0); transform-origin: right; transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
     }
-    .signout:hover { background: rgba(45,74,62,0.07); color: var(--ink, #1C1C1C); }
+    .nav-link:hover { color: var(--ink, #1C1C1C); }
+    .nav-link:hover::after { transform: scaleX(1); transform-origin: left; }
+    .nav-link.active { color: var(--forest, #2D4A3E); font-weight: 500; }
+    .nav-link.active::after { transform: scaleX(1); }
+    button { font-family: inherit; cursor: pointer; border: none; transition: background 0.2s ease; }
+    .icon-link {
+      display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-pill, 999px);
+      color: var(--ink-soft, #6B6B66); text-decoration: none; font-size: 18px; background: transparent;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .icon-link:hover { background: rgba(45,74,62,0.07); color: var(--ink, #1C1C1C); }
+    .icon-link.active { color: var(--forest, #2D4A3E); background: var(--sage-soft, #DDE7E0); }
+    /* Settings gear gives a little spin on hover and eases back on its
+       own once the pointer leaves, since :hover toggling off just runs
+       the same transition in reverse. */
+    .icon-link .spin-icon { display: inline-block; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .icon-link:hover .spin-icon { transform: rotate(75deg); }
+    @media (prefers-reduced-motion: reduce) {
+      .icon-link .spin-icon { transition: none; }
+    }
+    .signout {
+      background: transparent; color: var(--ink-soft, #6B6B66);
+    }
 
     @media (max-width: 640px) {
       .topbar { padding: 14px 18px; }
@@ -93,9 +119,13 @@ export class FoundrTopbar extends LitElement {
           ${this._link("dashboard", "/dashboard", "Dashboard")}
           ${this._link("transactions", "/transactions", "All entries")}
           ${this._link("margins", "/margins", "Margins")}
-          ${this._link("settings", "/settings", "Settings")}
           <slot name="actions"></slot>
-          <button class="signout" @click=${this._signOut}>Sign out</button>
+          <a class="icon-link ${this.active === "settings" ? "active" : ""}" href="/settings" aria-label="Settings" title="Settings">
+            <i class="ti ti-settings spin-icon" aria-hidden="true"></i>
+          </a>
+          <button class="icon-link signout" @click=${this._signOut} aria-label="Sign out" title="Sign out">
+            <i class="ti ti-logout" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
     `;

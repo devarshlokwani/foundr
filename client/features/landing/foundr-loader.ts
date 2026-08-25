@@ -68,7 +68,12 @@ export class FoundrLoader extends LitElement {
   }
 
   static styles = css`
-    :host { position: fixed; inset: 0; z-index: 9999; }
+    /* pointer-events: none so this purely decorative intro overlay never
+       swallows a real click meant for the page underneath (e.g. a founder
+       clicking "Sign in" before the ~3.5s animation finishes was landing
+       on this overlay instead of the button, and the click just did
+       nothing). Nothing inside the loader itself needs to be clickable. */
+    :host { position: fixed; inset: 0; z-index: 9999; pointer-events: none; }
     .overlay {
       position: fixed; inset: 0; background: var(--bg, #ECEAE3);
       display: flex; align-items: center; justify-content: center;
