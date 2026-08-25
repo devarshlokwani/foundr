@@ -1,12 +1,12 @@
 # Foundr
 
-> A finance tracking web app for solo founders who fund their own ventures.
+> The simple finance tracker built for solo founders funding their own dream.
 
 **Live:** [foundr-xi.vercel.app](https://foundr-xi.vercel.app)
 
-Most finance tools are built for funded startups with accountants. Foundr is built for the founder paying for the dream out of their own pocket, it turns the numbers you already track on paper into clear metrics: burn rate, runway, personal ROI, and margins.
+Most finance tools are built for funded startups with accountants. Foundr is built for the founder paying for the dream out of their own pocket. It turns the numbers you already track on paper into clear metrics: burn rate, runway, personal ROI, and margins.
 
-Currently in pre-launch. Waitlist open.
+**Status: v1.0 (Prototype), live.**
 
 ---
 
@@ -17,7 +17,7 @@ Currently in pre-launch. Waitlist open.
 | Frontend | Lit (Web Components), TypeScript, GSAP |
 | Backend | Node.js, Express, TypeScript |
 | Database | MongoDB + Mongoose |
-| Auth | Clerk *(in development)* |
+| Auth | Clerk |
 | Bundler | Vite |
 | Deploy | Vercel (frontend) + Render (API) |
 
@@ -26,17 +26,36 @@ Currently in pre-launch. Waitlist open.
 ## Architecture
 
 ```
-foundr-xi.vercel.app          (static landing - Vercel)
-        │
-        │  POST /api/waitlist
-        ▼
+foundr-xi.vercel.app          (static app, all pages - Vercel)
+        |
+        |  /api/* requests, proxied via vercel.json rewrite
+        v
 foundr.onrender.com           (Express API - Render)
-        │
-        ▼
-MongoDB Atlas                 (waitlist emails)
+        |
+        v
+MongoDB Atlas                 (all app data)
 ```
 
-The frontend and backend are deployed independently. The landing page is a static build (`dist-landing/`) served by Vercel. The waitlist API is a lightweight standalone Express server on Render, separate from the main app so the pre-launch site ships without exposing unfinished features.
+Clerk sits alongside both sides: the client talks to Clerk directly for sign-in/sign-up, and the server verifies each request's session token against Clerk before touching any data.
+
+The frontend and backend deploy independently. Vercel builds and serves every page as a static file (no server-side rendering); Vercel's `vercel.json` rewrites any `/api/*` request through to the Render-hosted API, so the two look like one site to a visitor even though they're two separate deployments.
+
+---
+
+## Features
+
+- **Multi-business dashboard**: every startup you track gets its own fully isolated set of numbers, switchable from one account.
+- **Ledger**: expenses, revenue, investments, draws, and debts, with search, filters, and date-range/granularity controls.
+- **Metrics**: burn rate, runway, personal ROI, gross margin, computed live from your entries.
+- **Reports**: margins breakdown and a full balance sheet, with CSV and PDF export.
+- **Recurring entries**: schedule a rule once (weekly, monthly, yearly) and it materializes into a real entry automatically when due.
+- **Trash and undo**: nothing is ever hard-deleted by accident. Soft-deleted entries can be restored or permanently removed from Settings.
+- **Activity log**: a timestamped history of every create/update/delete/restore across the account.
+- **Bulk import**: an LLM-prompt-based rulebook wizard for migrating data in from CSV.
+- **Onboarding**: a guided setup wizard plus an in-app product tour.
+- **Six themes**: light, dark, royal, ocean, sunset, slate.
+- **Contact page**: a reason-driven flow that books a real Cal.com slot for sales/hiring/partnership inquiries, or sends a direct message for everything else.
+- **Auth**: full Clerk-backed sign-up/sign-in, with email verification, Google sign-in, password reset, and a recovery-email flow.
 
 ---
 
@@ -46,18 +65,26 @@ The frontend and backend are deployed independently. The landing page is a stati
 foundr/
 ├── client/
 │   ├── features/
-│   │   ├── landing/          # Landing page (Lit component + GSAP animations)
-│   │   ├── auth/             # Sign in / Sign up (Clerk)
-│   │   ├── dashboard/        # Main app dashboard (in development)
-│   │   └── transactions/     # Transaction tracking (in development)
+│   │   ├── landing/          # Public landing page (Lit + GSAP animations)
+│   │   ├── auth/              # Sign in / Sign up (Clerk)
+│   │   ├── onboarding/        # Guided setup wizard
+│   │   ├── business/          # Startup switcher
+│   │   ├── dashboard/         # Metrics dashboard
+│   │   ├── transactions/      # Ledger: all entries, recurring, trash
+│   │   ├── margins/            # Margins report + balance sheet
+│   │   ├── settings/           # Account, security, data, appearance
+│   │   └── contact/            # Contact page (Cal.com + Web3Forms)
 │   └── shared/
-│       ├── lib/              # animations.ts, types.ts, waitlist.ts
-│       └── css/              # Design tokens
+│       ├── components/         # Shared Lit components (topbar, activity feed, import panel, etc.)
+│       ├── lib/                 # API client, formatting, theming, session handling
+│       └── css/                 # Design tokens (CSS custom properties, one set per theme)
 ├── server/
-│   ├── waitlist-server.ts    # Standalone pre-launch API
-│   └── models/               # Mongoose models
-├── vite.config.ts            # Full app build
-└── vite.landing.config.ts    # Landing-only build (what's deployed)
+│   ├── routes/                  # One file per API resource
+│   ├── models/                  # Mongoose schemas
+│   ├── lib/                      # Business logic (metrics, insights, recurring, etc.)
+│   └── middleware/               # Auth middleware
+├── vite.config.ts                # Full app build config
+└── vercel.json                    # Vercel build/output settings and the /api/* rewrite to Render
 ```
 
 ---
@@ -71,45 +98,35 @@ See [SETUP.md](./SETUP.md) for full local setup instructions, environment variab
 ## Environment Variables
 
 ```bash
-MONGODB_URI=           # MongoDB connection string
-CLERK_PUBLISHABLE_KEY= # From dashboard.clerk.com
-CLERK_SECRET_KEY=      # From dashboard.clerk.com
-VITE_WAITLIST_API=     # Waitlist API URL (Render in prod, localhost in dev)
+MONGODB_URI=                   # MongoDB connection string
+CLERK_PUBLISHABLE_KEY=         # From dashboard.clerk.com, read by the server
+CLERK_SECRET_KEY=              # From dashboard.clerk.com, server-only, never exposed to the client
+VITE_CLERK_PUBLISHABLE_KEY=    # Same publishable key, read by the client at build time
+PORT=                          # Server port (Render sets this itself in production)
 ```
 
----
-
-## What's Built
-
-- [x] Landing page with scroll animations (GSAP + ScrollTrigger)
-- [x] Pricing section with collage-to-grid scroll reveal
-- [x] Feature deck with pinned card animation
-- [x] Intro loader animation
-- [x] Waitlist API with rate limiting + MongoDB
-- [x] Deployed to Vercel + Render
-- [ ] Auth (Clerk) - in development
-- [ ] Dashboard with metrics - in development
-- [ ] Transaction tracking - in development
-- [ ] Shopify + bank sync - roadmap
+The Contact page also needs two constants filled in directly in `client/features/contact/foundr-contact.ts`: a Cal.com booking link and a Web3Forms access key. See that file's comments for where.
 
 ---
 
 ## Deployment
 
-**Landing page (Vercel):**
+**Frontend (Vercel):**
 ```bash
-npx vite build --config vite.landing.config.ts
-# Output → dist-landing/ (what Vercel serves)
+npm run build
+# Output -> dist/, which vercel.json points Vercel at
 ```
 
-**Waitlist API (Render):**
+**API (Render):**
 ```bash
-npx tsx server/waitlist-server.ts
+npm run server:build
+node dist-server/index.js
 ```
-**Preview landing build locally:**
+
+**Preview the production build locally:**
 ```bash
-npx vite preview --config vite.landing.config.ts
-# Mirrors exactly what Vercel serves, use this to test production build locally
+npm run build
+npx vite preview
 ```
 
 ---

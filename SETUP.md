@@ -7,8 +7,8 @@ Everything you need to run Foundr on your own machine.
 ## Prerequisites
 
 - Node.js 18+ and npm
-- MongoDB - local install, or free cloud instance at [mongodb.com/atlas](https://mongodb.com/atlas)
-- Clerk account - free at [clerk.com](https://clerk.com) (needed for auth pages)
+- MongoDB: local install, or a free cloud instance at [mongodb.com/atlas](https://mongodb.com/atlas)
+- Clerk account: free at [clerk.com](https://clerk.com)
 
 ---
 
@@ -27,11 +27,15 @@ cp .env.example .env
 Then open `.env` and fill in:
 
 ```bash
-MONGODB_URI=           # mongodb://localhost:27017/foundr (local) or your Atlas URI
-CLERK_PUBLISHABLE_KEY= # from dashboard.clerk.com → API Keys
-CLERK_SECRET_KEY=      # from dashboard.clerk.com → API Keys
-VITE_WAITLIST_API=     # http://localhost:3001 (for local waitlist API testing)
+MONGODB_URI=                  # mongodb://localhost:27017/foundr (local) or your Atlas URI
+CLERK_PUBLISHABLE_KEY=        # from dashboard.clerk.com -> API Keys
+CLERK_SECRET_KEY=             # from dashboard.clerk.com -> API Keys
+VITE_CLERK_PUBLISHABLE_KEY=   # same publishable key as above, read by the client at build time
 ```
+
+**3. (Optional) Set up the Contact page**
+
+`client/features/contact/foundr-contact.ts` has two constants near the top, `WEB3FORMS_ACCESS_KEY` and `CALCOM_BOOKING_URL`, needed only if you want the `/contact` page's booking calendar and message form to actually work. Not required to run the rest of the app locally.
 
 ---
 
@@ -43,37 +47,32 @@ npm run dev
 ```
 Opens at [http://localhost:5173](http://localhost:5173)
 
-**Waitlist API** (standalone pre-launch server):
-```bash
-npx tsx server/waitlist-server.ts
-```
-Runs at [http://localhost:3001](http://localhost:3001)
-
-**Full backend** (main app API, auth, dashboard, transactions):
+**Backend** (API, auth, dashboard, transactions, everything):
 ```bash
 npm run server
 ```
-Runs at [http://localhost:3000](http://localhost:3000), the frontend proxies `/api` here.
+Runs at [http://localhost:3000](http://localhost:3000). The frontend's dev server proxies `/api` requests here automatically.
+
+Run both at once, in two terminals, for a full local setup.
 
 ---
 
 ## Building for Production
 
-**Landing page only** (what's deployed to Vercel):
-```bash
-npx vite build --config vite.landing.config.ts
-# Output → dist-landing/
-```
-
-**Preview the landing build locally** (mirrors exactly what Vercel serves):
-```bash
-npx vite preview --config vite.landing.config.ts
-```
-
-**Full app:**
 ```bash
 npm run build
-# Output → dist/
+# Output -> dist/
+```
+
+**Preview the production build locally** (mirrors what gets deployed):
+```bash
+npx vite preview
+```
+
+**Build the server** (what Render runs):
+```bash
+npm run server:build
+node dist-server/index.js
 ```
 
 ---
@@ -82,23 +81,15 @@ npm run build
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Start frontend dev server |
-| `npm run server` | Start main backend |
-| `npm run type-check` | Check TypeScript without building |
-| `npm run build` | Production build (full app) → `dist/` |
-| `npm run preview` | Preview the production build locally |
+| `npm run dev` | Start the frontend dev server |
+| `npm run server` | Start the backend API |
+| `npm run type-check` | Check TypeScript across the whole project without building |
+| `npm run build` | Production build of the frontend -> `dist/` |
+| `npm run server:build` | Compile the server -> `dist-server/` |
+| `npm run preview` | Preview the production frontend build locally |
+| `npm run lint` | Run ESLint |
 | `npm run format` | Auto-format with Prettier |
-| `npx vite build --config vite.landing.config.ts` | Landing-only build → `dist-landing/` |
-| `npx vite preview --config vite.landing.config.ts` | Preview landing build locally (mirrors Vercel) |
-
----
-
-## Two Build Configs, Why?
-
-Foundr has two Vite configs intentionally:
-
-- **`vite.config.ts`** - builds the full app (landing + dashboard + auth + transactions). Used for local development and when the full app launches.
-- **`vite.landing.config.ts`** - builds only the landing page (`client/index.html`). This is what's deployed to Vercel pre-launch, so the unfinished dashboard and auth pages stay private while the waitlist is live.
+| `npm audit` | Check dependencies for known vulnerabilities |
 
 ---
 
@@ -108,33 +99,44 @@ Foundr has two Vite configs intentionally:
 foundr/
 ├── client/
 │   ├── features/
-│   │   ├── landing/          # Landing page + loader
-│   │   ├── auth/             # Sign in / Sign up (Clerk)
-│   │   ├── dashboard/        # Metrics dashboard (in development)
-│   │   └── transactions/     # Transaction tracking (in development)
+│   │   ├── landing/          # Public landing page + loader
+│   │   ├── auth/              # Sign in / Sign up (Clerk)
+│   │   ├── onboarding/        # Guided setup wizard
+│   │   ├── business/          # Startup switcher
+│   │   ├── dashboard/         # Metrics dashboard
+│   │   ├── transactions/      # Ledger, recurring, trash
+│   │   ├── margins/            # Margins report + balance sheet
+│   │   ├── settings/           # Account, security, data, appearance
+│   │   └── contact/            # Contact page (Cal.com + Web3Forms)
 │   └── shared/
-│       ├── lib/              # animations.ts, types.ts, waitlist.ts
-│       └── css/              # Design tokens (CSS custom properties)
+│       ├── components/         # Shared Lit components
+│       ├── lib/                 # API client, formatting, theming, session handling
+│       └── css/                 # Design tokens (one set of custom properties per theme)
 ├── server/
-│   ├── waitlist-server.ts    # Standalone pre-launch waitlist API
-│   └── models/               # Mongoose models (Waitlist, future: Transaction)
-├── vite.config.ts            # Full app build config
-├── vite.landing.config.ts    # Landing-only build config
-└── .env.example              # Environment variable template
+│   ├── routes/                  # One file per API resource
+│   ├── models/                  # Mongoose schemas
+│   ├── lib/                      # Business logic
+│   └── middleware/               # Auth middleware
+├── vite.config.ts                # Frontend build config, every page listed as a build input
+├── vercel.json                    # Vercel build/output settings and the /api/* rewrite to Render
+└── .env.example                   # Environment variable template
 ```
 
 ---
 
 ## Common Issues
 
-**Waitlist form shows an error on submit**
-→ Make sure `VITE_WAITLIST_API` in your `.env` points to a running waitlist server (`http://localhost:3001` locally).
+**API calls fail locally with a network error**
+Make sure `npm run server` is actually running in a separate terminal. The Vite dev server only proxies `/api` requests to it; it doesn't start the server itself.
 
 **MongoDB connection fails**
-→ If using Atlas, make sure your IP is whitelisted under Network Access. If using local MongoDB, make sure it's running (`mongod`).
+If using Atlas, make sure your IP is allowed under Network Access. If using local MongoDB, make sure it's running (`mongod`).
 
 **Clerk auth pages redirect incorrectly**
-→ In your Clerk dashboard, set allowed redirect URLs to include `http://localhost:5173`.
+In your Clerk dashboard, set allowed redirect URLs and origins to include `http://localhost:5173` for local dev, and your real domain for production.
+
+**Sign-up/sign-in works locally but fails once deployed**
+Check that the production Clerk instance (not the test/dev one) has your live domain added to its allowed origins, and that Render has the production `CLERK_SECRET_KEY` and `CLERK_PUBLISHABLE_KEY` set, not blank or missing.
 
 ---
 
