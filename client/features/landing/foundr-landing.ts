@@ -153,7 +153,13 @@ export class FoundrLanding extends LitElement {
 
     this._setupButtonHovers();
 
-    if (window.innerWidth > 760) this._layoutFeatures(false);
+    // Every feature card is absolutely positioned (.feat-card { inset: 0 }),
+    // stacked purely via this GSAP layout pass, at every viewport width:
+    // skipping it below 760px (as a stale guard used to) left mobile
+    // showing the raw unstacked DOM order (card 6 on top) until the first
+    // "next" click ran this for the first time, jumping/animating
+    // everything into place at once.
+    this._layoutFeatures(false);
 
     ScrollTrigger.refresh();
   }
@@ -619,6 +625,7 @@ export class FoundrLanding extends LitElement {
             <a href="#features" @click=${(e: Event) => this._navClick(e, "#features")}>Features</a>
             <a href="#pricing" @click=${(e: Event) => this._navClick(e, "#pricing")}>Pricing</a>
             <a href="#faq" @click=${(e: Event) => this._navClick(e, "#faq")}>FAQ</a>
+            <a href="/contact">Contact</a>
           </div>
           <div class="nav-actions">
             <button class="btn-ghost" @click=${this._signIn}>Sign in</button>
@@ -868,14 +875,11 @@ export class FoundrLanding extends LitElement {
               <div class="footer-col">
                 <h4>Company</h4>
                 <a href="#">About</a>
-                <a href="#">Blog</a>
-                <a href="#">Contact</a>
+                <a href="/contact">Contact</a>
               </div>
               <div class="footer-col">
                 <h4>Legal</h4>
-                <a href="#">Privacy</a>
-                <a href="#">Terms</a>
-                <a href="#">Security</a>
+                <a href="/terms">Terms</a>
               </div>
             </div>
           </div>

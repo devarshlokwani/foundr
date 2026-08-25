@@ -28,6 +28,8 @@ export default defineConfig({
         margins: resolve(__dirname, "client/margins.html"),
         settings: resolve(__dirname, "client/settings.html"),
         business: resolve(__dirname, "client/business.html"),
+        terms: resolve(__dirname, "client/terms.html"),
+        contact: resolve(__dirname, "client/contact.html"),
       },
     },
   },

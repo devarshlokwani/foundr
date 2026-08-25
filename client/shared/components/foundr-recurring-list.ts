@@ -121,25 +121,43 @@ export class FoundrRecurringList extends LitElement {
     .add-btn:active { transform: translate(0, 0); box-shadow: 1px 1px 0 var(--forest-deep, #1F3329); }
 
     .hint { font-size: 13px; color: var(--ink-soft, #6B6B66); margin: 0; }
+    .empty { text-align: center; padding: 44px 20px; color: var(--ink-soft, #6B6B66); }
+    .empty .ti-repeat { font-size: 26px; color: var(--sage, #8AAF9A); margin-bottom: 10px; display: block; }
+    .empty p { margin: 0; font-size: 13.5px; }
+    .loading { padding: 30px 0; text-align: center; color: var(--ink-soft, #6B6B66); font-size: 13.5px; }
     .list { display: flex; flex-direction: column; gap: 8px; }
     .row {
       display: flex; align-items: center; gap: 12px;
       padding: 10px 14px; background: var(--surface-alt, #F2EFE8); border: 1px solid transparent;
-      border-radius: 14px; font-size: 14px; transition: opacity 0.15s ease;
+      border-radius: 14px; font-size: 14px;
+      transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
+    .row:hover { transform: translate(-2px, -2px); box-shadow: 2px 2px 0 var(--sage, #8AAF9A); border-color: var(--line, #E2DFD7); }
     .row.paused { opacity: 0.6; }
+    .row.paused:hover { opacity: 0.85; }
     .icon {
       width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
       background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E);
       display: grid; place-items: center; font-size: 16px;
     }
+    .row.expense .icon { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
     .info { flex: 1; min-width: 0; }
     .name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .meta { font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin-top: 2px; }
+    .meta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft, #6B6B66); margin-top: 3px; }
+    .meta .amount { font-weight: 600; }
+    .row.revenue .meta .amount { color: var(--forest, #2D4A3E); }
+    .row.expense .meta .amount { color: var(--danger, #A8302B); }
+    .meta .dot { opacity: 0.5; }
+    .freq-pill {
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+      background: var(--sage-soft, #DDE7E0); color: var(--forest, #2D4A3E); padding: 2px 8px; border-radius: 999px;
+    }
+    .row.expense .freq-pill { background: var(--danger-bg, #FBEAE9); color: var(--danger, #A8302B); }
     .actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .badge {
       font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
       background: var(--surface-alt, #F2EFE8); color: var(--ink-soft, #6B6B66); padding: 3px 8px; border-radius: 999px;
+      border: 1px solid var(--line, #E2DFD7);
     }
     .icon-btn {
       background: transparent; border: 1px solid var(--line, #E2DFD7); border-radius: 8px;
@@ -154,7 +172,7 @@ export class FoundrRecurringList extends LitElement {
   `;
 
   render(): TemplateResult {
-    if (this.loading) return html``;
+    if (this.loading) return html`<div class="loading">Loading recurring entries…</div>`;
     return html`
       <div class="head-row">
         <button class="add-btn" @click=${this._openCreate}>
@@ -162,17 +180,25 @@ export class FoundrRecurringList extends LitElement {
         </button>
       </div>
       ${this.rules.length === 0
-        ? html`<p class="hint">Nothing recurring yet.</p>`
+        ? html`
+            <div class="empty">
+              <i class="ti ti-repeat" aria-hidden="true"></i>
+              <p>Nothing recurring yet. Rent, subscriptions, retainers: anything on a schedule belongs here.</p>
+            </div>
+          `
         : html`
             <div class="list">
               ${this.rules.map(
                 (r) => html`
-                  <div class="row ${r.active ? "" : "paused"}">
+                  <div class="row ${r.kind} ${r.active ? "" : "paused"}">
                     <span class="icon"><i class="ti ti-repeat" aria-hidden="true"></i></span>
                     <div class="info">
                       <div class="name">${r.category}</div>
                       <div class="meta">
-                        ${r.kind === "revenue" ? "+" : "−"}${this._money(r.amount)} · ${FREQUENCY_LABELS[r.frequency]} · next ${this._nextRun(r)}
+                        <span class="amount">${r.kind === "revenue" ? "+" : "−"}${this._money(r.amount)}</span>
+                        <span class="freq-pill">${FREQUENCY_LABELS[r.frequency]}</span>
+                        <span class="dot">·</span>
+                        <span>next ${this._nextRun(r)}</span>
                       </div>
                     </div>
                     <div class="actions">

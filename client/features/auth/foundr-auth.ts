@@ -37,6 +37,7 @@ export class FoundrAuth extends LitElement {
   @state() private code = "";
   @state() private loading = false;
   @state() private error = "";
+  @state() private agreedToTerms = false;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -80,6 +81,7 @@ export class FoundrAuth extends LitElement {
   private _validate(): string | null {
     if (!this.email.includes("@")) return "Enter a valid email address.";
     if (this.password.length < 8) return "Password must be at least 8 characters.";
+    if (!this.agreedToTerms) return "Please agree to the Terms of Service to continue.";
     return null;
   }
 
@@ -200,6 +202,10 @@ export class FoundrAuth extends LitElement {
   }
 
   private async _google(): Promise<void> {
+    if (!this.agreedToTerms) {
+      this.error = "Please agree to the Terms of Service to continue.";
+      return;
+    }
     this.loading = true;
     this.error = "";
     const result = await signInWithGoogle();
@@ -314,8 +320,12 @@ export class FoundrAuth extends LitElement {
       background: none; color: var(--forest, #2D4A3E); font-weight: 500; font-size: 14px;
       padding: 0; text-decoration: underline; text-underline-offset: 2px;
     }
-    .legal { margin-top: 20px; font-size: 12px; color: var(--ink-soft, #6B6B66); text-align: center; line-height: 1.5; }
-    .legal a { color: var(--forest, #2D4A3E); }
+    .terms-check {
+      display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+      margin: 2px 0 16px; font-size: 13px; color: var(--ink-soft, #6B6B66); line-height: 1.4;
+    }
+    .terms-check input { margin-top: 2px; accent-color: var(--forest, #2D4A3E); flex-shrink: 0; cursor: pointer; }
+    .terms-check a { color: var(--forest, #2D4A3E); text-decoration: underline; text-underline-offset: 2px; }
 
     .verify-hint { font-size: 14px; color: var(--ink-soft, #6B6B66); margin: 0 0 22px; line-height: 1.5; }
     .verify-hint strong { color: var(--ink, #1C1C1C); }
@@ -399,6 +409,19 @@ export class FoundrAuth extends LitElement {
               .value=${this.password} @input=${(e: Event) => this._onInput("password", e)} ?disabled=${this.loading}
             />
           </div>
+          <label class="terms-check">
+            <input
+              type="checkbox"
+              .checked=${this.agreedToTerms}
+              @change=${(e: Event) => {
+                this.agreedToTerms = (e.target as HTMLInputElement).checked;
+                if (this.error) this.error = "";
+              }}
+              ?disabled=${this.loading}
+            />
+            <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a>.</span>
+          </label>
+
           <div id="clerk-captcha"></div>
           <button class="submit-btn" type="submit" ?disabled=${this.loading}>
             ${this.loading ? "Please wait…" : this.isSignUp ? "Create account" : "Sign in"}
@@ -409,10 +432,6 @@ export class FoundrAuth extends LitElement {
           ${this.isSignUp ? "Already have an account?" : "New to Foundr?"}
           <button @click=${this._switchMode}>${this.isSignUp ? "Sign in" : "Create one free"}</button>
         </p>
-
-        ${this.isSignUp
-          ? html`<p class="legal">By creating an account you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>`
-          : ""}
       </div>
     `;
   }
