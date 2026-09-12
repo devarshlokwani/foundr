@@ -9,6 +9,7 @@ import {
   revealOnScroll,
   teardownAnimations,
 } from "../../shared/lib/animations";
+import { FREE_LIMITS, PREMIUM_PRICE, PREMIUM_INTERVAL } from "../../shared/lib/plans";
 import "../../shared/components/foundr-coming-soon-modal";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -61,39 +62,43 @@ export class FoundrLanding extends LitElement {
     { icon: "ti-flag", title: "Milestones", body: "Set targets like 'break even' and watch your progress." },
   ];
 
+  /**
+   * Mirrors shared/lib/plans.ts, which is the single definition of what
+   * Foundr charges. The landing page keeps its own shape (it has a `cta`
+   * and `sub` the app's plan page doesn't), but the prices and limits must
+   * match: a visitor promised one thing and a customer shown another is a
+   * complaint waiting to happen.
+   */
   @property({ type: Array }) plans: Plan[] = [
     {
       name: "Starter",
       price: "Free",
       sub: "forever",
       tagline: "For founders just getting going",
-      features: ["Track 1 business", "All core metrics", "Manual entry", "Up to 50 transactions/mo"],
+      features: [
+        `Track ${FREE_LIMITS.businesses} startups`,
+        `${FREE_LIMITS.entriesPerMonth} entries a month`,
+        "Burn, runway, ROI, and margins",
+        "Connect a Shopify store",
+        "Reports and CSV export",
+      ],
       cta: "Start free",
       featured: false,
     },
     {
-      name: "Founder",
-      price: "$20",
-      sub: "per month",
-      tagline: "For founders ready to scale",
+      name: "Premium",
+      price: PREMIUM_PRICE,
+      sub: PREMIUM_INTERVAL,
+      tagline: "For founders running the real thing",
       features: [
+        "Unlimited startups",
+        "Unlimited entries",
+        "Full Shopify order history",
+        "Unlimited connected stores",
         "Everything in Starter",
-        "Unlimited businesses",
-        "Unlimited transactions",
-        "Milestones & goals",
-        "Export reports",
       ],
-      cta: "Start free trial",
+      cta: "Get Premium",
       featured: true,
-    },
-    {
-      name: "Growth",
-      price: "Coming soon",
-      sub: "",
-      tagline: "Auto-sync, no manual entry",
-      features: ["Everything in Founder", "Shopify integration", "Auto-tracked sales", "Bank sync", "Early access list"],
-      cta: "Join waitlist",
-      featured: false,
     },
   ];
 
@@ -108,7 +113,7 @@ export class FoundrLanding extends LitElement {
     },
     {
       q: "Will this connect to Shopify or my bank?",
-      a: "That's on the way. Right now Foundr works on the numbers you enter yourself. Automatic Shopify and bank sync are coming on the Growth plan, join the waitlist to get early access.",
+      a: "Shopify, yes, on every plan including the free one: connect your store and your orders arrive as revenue automatically. Premium lifts the monthly cap and imports your full order history. Bank sync is still on the way.",
     },
     {
       q: "Is my financial data safe?",
@@ -116,7 +121,7 @@ export class FoundrLanding extends LitElement {
     },
     {
       q: "Can I track more than one business?",
-      a: "On the free plan you track one. The Founder plan lets you track as many separate ventures as you like, each with its own dashboard.",
+      a: `The free plan covers ${FREE_LIMITS.businesses} startups, each with its own fully separate dashboard. Premium lets you track as many as you like.`,
     },
   ];
 
@@ -175,22 +180,33 @@ export class FoundrLanding extends LitElement {
     if (!group || !section) return;
 
     const cards = Array.from(root.querySelectorAll(".plans .plan")) as HTMLElement[];
-    if (cards.length < 3) return;
+    if (cards.length < 2) return;
 
     group.classList.add("collage-ready");
 
     // Distance between grid slots (measured live so it scales with layout).
     const slot = cards[1].offsetLeft - cards[0].offsetLeft;
 
-    // Collage: side cards pulled inward + behind the upright center card.
-    const collage = [
-      { x: slot - 40, y: 30, rot: -9, z: 1 },
-      { x: 0, y: 0, rot: 0, z: 3 },
-      { x: -slot + 40, y: 30, rot: 9, z: 2 },
-    ];
+    /**
+     * Collage: cards start pulled toward the centre and fanned, then
+     * spread into their real grid positions on scroll.
+     *
+     * Derived from each card's distance from the middle rather than a
+     * hardcoded list of positions, so it works for two plans or three.
+     * The previous version was a fixed three-entry array guarded by
+     * `length < 3`, which meant dropping to two plans didn't break the
+     * page, it just silently skipped the animation entirely.
+     */
+    const centre = (cards.length - 1) / 2;
     cards.forEach((card, i) => {
-      const c = collage[i] ?? { x: 0, y: 0, rot: 0, z: 1 };
-      gsap.set(card, { x: c.x, y: c.y, rotation: c.rot, zIndex: c.z, transformOrigin: "center center" });
+      const fromCentre = i - centre;
+      gsap.set(card, {
+        x: -fromCentre * slot * 0.82,
+        y: Math.abs(fromCentre) * 28,
+        rotation: fromCentre * 8,
+        zIndex: Math.round(10 - Math.abs(fromCentre) * 2),
+        transformOrigin: "center center",
+      });
     });
 
     // Play the spread once the section scrolls into view. IntersectionObserver

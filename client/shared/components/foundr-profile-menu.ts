@@ -215,7 +215,7 @@ export class FoundrProfileMenu extends LitElement {
       </div>
       <div class="menu-sep"></div>
 
-      <button class="menu-item" @click=${(e: Event) => { e.stopPropagation(); this.open = false; this.comingSoonOpen = true; }}>
+      <button class="menu-item" @click=${(e: Event) => { e.stopPropagation(); this.open = false; window.location.href = "/upgrade"; }}>
         <i class="ti ti-crown" aria-hidden="true"></i>Upgrade plan
         <span class="plan-badge">Free</span>
       </button>

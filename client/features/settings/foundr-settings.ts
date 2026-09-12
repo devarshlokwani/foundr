@@ -816,7 +816,7 @@ export class FoundrSettings extends LitElement {
             <div class="label">Plan</div>
             <div class="desc">You're on the Free plan: every core feature, no cost.</div>
           </div>
-          <button class="btn-save-form" @click=${() => { this.comingSoonOpen = true; }}>Upgrade</button>
+          <a class="btn-save-form" href="/upgrade" style="text-decoration:none; display:inline-block;">Upgrade</a>
         </div>
       </div>
 
@@ -1120,7 +1120,7 @@ export class FoundrSettings extends LitElement {
         </div>
         <foundr-shopify-panel
           businessId=${this.activeBusinessId}
-          @request-upgrade=${() => { this.comingSoonOpen = true; }}
+          @request-upgrade=${() => { window.location.href = "/upgrade"; }}
         ></foundr-shopify-panel>
       </div>
     `;

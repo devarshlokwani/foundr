@@ -149,7 +149,7 @@ export class FoundrDashboard extends LitElement {
 
   private _onUpgradeRequested(): void {
     this.quotaPromptOpen = false;
-    this.comingSoonOpen = true;
+    window.location.href = "/upgrade";
   }
 
   private _openMigrate(): void {

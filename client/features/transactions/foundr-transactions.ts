@@ -182,7 +182,7 @@ export class FoundrTransactions extends LitElement {
 
   private _onUpgradeRequested(): void {
     this.quotaPromptOpen = false;
-    this.comingSoonOpen = true;
+    window.location.href = "/upgrade";
   }
 
   private _closeAddEntry(): void {

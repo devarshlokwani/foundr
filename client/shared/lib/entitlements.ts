@@ -18,6 +18,12 @@ export type Plan = "free" | "premium";
 
 export interface Entitlements {
   plan: Plan;
+  /**
+   * True when the unlimited access comes from being an administrator
+   * rather than from paying, so the UI can say which it is instead of
+   * showing someone a "Premium" badge they never bought.
+   */
+  isAdmin: boolean;
   limits: {
     businesses: number | null;
     entriesPerMonth: number | null;

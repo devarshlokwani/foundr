@@ -30,6 +30,7 @@ export default defineConfig({
         business: resolve(__dirname, "client/business.html"),
         terms: resolve(__dirname, "client/terms.html"),
         contact: resolve(__dirname, "client/contact.html"),
+        upgrade: resolve(__dirname, "client/upgrade.html"),
       },
     },
   },
