@@ -4,6 +4,7 @@ import { ExpenseModel } from "../models/Expense.js";
 import { InvestmentModel } from "../models/Investment.js";
 import { DrawModel } from "../models/Draw.js";
 import { DebtModel } from "../models/Debt.js";
+import { isAdmin } from "./admin.js";
 
 /**
  * The single source of truth for what a founder is allowed to do.
@@ -66,6 +67,13 @@ export interface WireLimits {
 
 export interface Entitlements {
   plan: Plan;
+  /**
+   * True when the unlimited access comes from being an administrator
+   * rather than from paying. Surfaced so the UI can say so plainly:
+   * during testing it is the difference between "the bypass is working"
+   * and "the plan logic is broken and letting everyone through".
+   */
+  isAdmin: boolean;
   limits: WireLimits;
   usage: {
     businesses: number;
@@ -98,6 +106,12 @@ function startOfNextMonth(now = new Date()): Date {
  * `customer.subscription.deleted`, and that is what actually ends access.
  */
 export async function getPlan(userId: string): Promise<Plan> {
+  // Checked first so an administrator is never limited, and never needs a
+  // Stripe subscription to avoid it. Every other function here reads the
+  // plan through this one, so the bypass applies everywhere by
+  // construction rather than by remembering to add it to each check.
+  if (await isAdmin(userId)) return "premium";
+
   const sub = await SubscriptionModel.findOne({ userId });
   if (!sub) return "free";
   return sub.plan === "premium" ? "premium" : "free";
@@ -129,8 +143,9 @@ export async function countBusinesses(userId: string): Promise<number> {
 
 /** Everything the UI needs to show a founder where they stand. */
 export async function getEntitlements(userId: string): Promise<Entitlements> {
-  const [plan, businesses, entriesThisMonth] = await Promise.all([
+  const [plan, admin, businesses, entriesThisMonth] = await Promise.all([
     getPlan(userId),
+    isAdmin(userId),
     countBusinesses(userId),
     countEntriesThisMonth(userId),
   ]);
@@ -139,6 +154,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
 
   return {
     plan,
+    isAdmin: admin,
     limits: {
       businesses: toWire(limits.businesses),
       entriesPerMonth: toWire(limits.entriesPerMonth),

@@ -4,6 +4,8 @@ import { getClerk } from "../auth/auth.service";
 import { apiGet } from "../../shared/lib/api";
 import type { DashboardMetrics } from "../../shared/lib/types";
 import "../../shared/components/foundr-add-entry";
+import "../../shared/components/foundr-upgrade-prompt";
+import "../../shared/components/foundr-coming-soon-modal";
 import "./foundr-insights";
 import "../onboarding/foundr-onboarding";
 import "../../shared/components/foundr-topbar";
@@ -37,6 +39,9 @@ export class FoundrDashboard extends LitElement {
   @state() private userName = "founder";
   @state() private modalOpen = false;
   @state() private migrateOpen = false;
+  @state() private quotaPromptOpen = false;
+  @state() private quotaReason = "";
+  @state() private comingSoonOpen = false;
   @state() private needsOnboarding = false;
   @state() private businessId = "";
   @state() private businessLabel = "";
@@ -130,6 +135,21 @@ export class FoundrDashboard extends LitElement {
 
   private _closeModal(): void {
     this.modalOpen = false;
+  }
+
+  /**
+   * A plan limit was reached while saving. The add-entry modal has already
+   * closed itself, so this only has to explain what happened, using the
+   * server's own wording since it owns the actual numbers.
+   */
+  private _onQuotaReached(e: Event): void {
+    this.quotaReason = (e as CustomEvent<{ reason: string }>).detail?.reason ?? "";
+    this.quotaPromptOpen = true;
+  }
+
+  private _onUpgradeRequested(): void {
+    this.quotaPromptOpen = false;
+    this.comingSoonOpen = true;
   }
 
   private _openMigrate(): void {
@@ -395,7 +415,18 @@ export class FoundrDashboard extends LitElement {
         businessId=${this.businessId}
         @close=${this._closeModal}
         @entry-added=${this._onEntryAdded}
+        @quota-reached=${this._onQuotaReached}
       ></foundr-add-entry>
+      <foundr-upgrade-prompt
+        ?open=${this.quotaPromptOpen}
+        reason=${this.quotaReason}
+        @close=${() => { this.quotaPromptOpen = false; }}
+        @upgrade=${this._onUpgradeRequested}
+      ></foundr-upgrade-prompt>
+      <foundr-coming-soon-modal
+        ?open=${this.comingSoonOpen}
+        @close=${() => { this.comingSoonOpen = false; }}
+      ></foundr-coming-soon-modal>
       <foundr-migrate-modal
         .open=${this.migrateOpen}
         businessId=${this.businessId}

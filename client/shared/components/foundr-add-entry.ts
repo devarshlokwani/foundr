@@ -1,7 +1,7 @@
 import { LitElement, html, css, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
-import { apiGet, apiPost } from "../lib/api";
+import { apiGet, apiPost, isQuotaError } from "../lib/api";
 import { currencySymbol } from "../lib/format";
 import { createRecurringRule } from "../lib/recurring";
 
@@ -218,6 +218,17 @@ export class FoundrAddEntry extends LitElement {
       this._reset();
       this._close();
     } catch (err) {
+      // Running out of monthly allowance isn't a failure to fix, it's a
+      // plan ceiling, so it leaves the modal and surfaces as an upgrade
+      // prompt instead of a red error under the save button. The typed
+      // entry is kept, not reset, in case they upgrade and come back.
+      if (isQuotaError(err)) {
+        this._close();
+        this.dispatchEvent(
+          new CustomEvent("quota-reached", { bubbles: true, composed: true, detail: { reason: err.message } })
+        );
+        return;
+      }
       this.error = err instanceof Error ? err.message : "Couldn't save. Try again.";
     } finally {
       this.loading = false;
