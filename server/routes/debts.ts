@@ -3,6 +3,7 @@ import { DebtModel } from "../models/Debt.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
+import { checkEntryQuota } from "../lib/entitlements.js";
 
 /**
  * Debt API: money borrowed for one business, and repayments against it.
@@ -44,6 +45,11 @@ router.post("/", async (req: Request, res: Response) => {
   }
   if (typeof amount !== "number" || amount < 0) {
     return res.status(400).json({ error: "Amount must be a positive number." });
+  }
+
+  const allowed = await checkEntryQuota(userId!);
+  if (!allowed.ok) {
+    return res.status(402).json({ error: allowed.reason, limit: allowed.limit, used: allowed.used });
   }
 
   const created = await DebtModel.create({

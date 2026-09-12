@@ -33,8 +33,25 @@ const expenseSchema = new Schema(
     date: { type: Date, required: true, default: Date.now },
     isCapital: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
+    source: { type: String, enum: ["manual", "shopify"], default: "manual" },
+    externalId: { type: String, default: "" },
   },
   { timestamps: true }
+);
+
+/**
+ * Stops a re-sync from double-counting revenue, which in a finance app is
+ * about the worst bug available: the founder's income would silently
+ * inflate every time they pressed "Sync now".
+ *
+ * Partial, so it only applies to rows that actually came from an external
+ * system. Every manually added entry has `externalId: ""`, and without the
+ * filter a unique index would treat all of them as duplicates of each
+ * other and refuse the second one.
+ */
+expenseSchema.index(
+  { businessId: 1, externalId: 1 },
+  { unique: true, partialFilterExpression: { externalId: { $gt: "" } } }
 );
 
 export type Expense = InferSchemaType<typeof expenseSchema>;

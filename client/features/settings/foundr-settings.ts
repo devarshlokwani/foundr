@@ -21,11 +21,12 @@ import "../../shared/components/foundr-mini-loader";
 import "../../shared/components/foundr-coming-soon-modal";
 import "../../shared/components/foundr-tour-overlay";
 import "../../shared/components/foundr-recurring-list";
+import "../../shared/components/foundr-shopify-panel";
 import "../../shared/components/foundr-trash-list";
 import "../../shared/components/foundr-import-panel";
 
 type Gender = UserSettings["gender"];
-type Section = "general" | "profile" | "security" | "startups" | "data";
+type Section = "general" | "profile" | "security" | "startups" | "connections" | "data";
 // Recurring rules, trash, the activity log, and migrate are all founder
 // "data tools" rather than account preferences, so they live grouped under
 // one Data section instead of each getting its own top-level nav slot.
@@ -51,6 +52,7 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: "profile", label: "Profile", icon: "ti-user" },
   { key: "security", label: "Security", icon: "ti-shield-lock" },
   { key: "startups", label: "Startups", icon: "ti-building-store" },
+  { key: "connections", label: "Connections", icon: "ti-plug-connected" },
   { key: "data", label: "Data", icon: "ti-database" },
 ];
 
@@ -502,6 +504,7 @@ export class FoundrSettings extends LitElement {
     .ti-repeat:before { content: "\\eb72"; }
     .ti-upload:before { content: "\\eb47"; }
     .ti-database:before { content: "\\ea88"; }
+    .ti-plug-connected:before { content: "\\f00a"; }
     .ti-alert-triangle:before { content: "\\ea06"; }
     button, select, input { font-family: inherit; }
     button { cursor: pointer; border: none; }
@@ -1098,6 +1101,31 @@ export class FoundrSettings extends LitElement {
     `;
   }
 
+  /**
+   * Shopify lives at the top level rather than under Data because it isn't
+   * a maintenance tool like Trash or Activity: it's a source of the
+   * numbers themselves, and the section is named for the ones that follow
+   * it (bank sync) rather than for Shopify alone.
+   */
+  private _renderConnections(): TemplateResult {
+    return html`
+      <div class="card">
+        <div class="setting-info">
+          <div class="label">Shopify</div>
+          <div class="desc">
+            Connect a store and its orders arrive as revenue automatically, so burn, runway, and
+            margins stay current without typing sales in by hand. Each startup connects its own
+            store, and imported orders land only in that startup's ledger.
+          </div>
+        </div>
+        <foundr-shopify-panel
+          businessId=${this.activeBusinessId}
+          @request-upgrade=${() => { this.comingSoonOpen = true; }}
+        ></foundr-shopify-panel>
+      </div>
+    `;
+  }
+
   private _renderRecurring(): TemplateResult {
     return html`
       <div class="card">
@@ -1219,6 +1247,7 @@ export class FoundrSettings extends LitElement {
       else if (this.section === "profile") content = this._renderProfile();
       else if (this.section === "security") content = this._renderSecurity();
       else if (this.section === "startups") content = this._renderStartups();
+      else if (this.section === "connections") content = this._renderConnections();
       else content = this._renderData();
     }
 

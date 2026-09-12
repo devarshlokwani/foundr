@@ -3,6 +3,7 @@ import { ExpenseModel } from "../models/Expense.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
+import { checkEntryQuota } from "../lib/entitlements.js";
 
 /**
  * Transactions API: the founder's income and expense entries for one
@@ -48,6 +49,11 @@ router.post("/", async (req: Request, res: Response) => {
   }
   if (!category || typeof category !== "string") {
     return res.status(400).json({ error: "A category is required." });
+  }
+
+  const allowed = await checkEntryQuota(userId!);
+  if (!allowed.ok) {
+    return res.status(402).json({ error: allowed.reason, limit: allowed.limit, used: allowed.used });
   }
 
   const created = await ExpenseModel.create({

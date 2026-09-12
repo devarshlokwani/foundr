@@ -3,6 +3,7 @@ import { DrawModel } from "../models/Draw.js";
 import { requireUser, getUserId } from "../middleware/auth.js";
 import { requireBusiness } from "../middleware/business.js";
 import { logActivity } from "../lib/activityLog.js";
+import { checkEntryQuota } from "../lib/entitlements.js";
 
 /**
  * Draws API: money the founder has taken out of one business.
@@ -40,6 +41,11 @@ router.post("/", async (req: Request, res: Response) => {
   }
   if (!category || typeof category !== "string") {
     return res.status(400).json({ error: "A category is required." });
+  }
+
+  const allowed = await checkEntryQuota(userId!);
+  if (!allowed.ok) {
+    return res.status(402).json({ error: allowed.reason, limit: allowed.limit, used: allowed.used });
   }
 
   const created = await DrawModel.create({

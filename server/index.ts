@@ -24,6 +24,8 @@ import recurringRouter from "./routes/recurring.js";
 import trashRouter from "./routes/trash.js";
 import activityRouter from "./routes/activity.js";
 import importRouter from "./routes/import.js";
+import entitlementsRouter from "./routes/entitlements.js";
+import shopifyRouter from "./routes/shopify.js";
 
 /**
  * Foundr API server.
@@ -70,6 +72,8 @@ app.use("/api/recurring", recurringRouter);
 app.use("/api/trash", trashRouter);
 app.use("/api/activity", activityRouter);
 app.use("/api/import", importRouter);
+app.use("/api/entitlements", entitlementsRouter);
+app.use("/api/shopify", shopifyRouter);
 
 // Catches anything a route threw or rejected with (now forwarded here by
 // express-async-errors) so one bad request returns a clean 500 instead of

@@ -7,6 +7,7 @@ import { InvestmentModel } from "../models/Investment.js";
 import { DrawModel } from "../models/Draw.js";
 import { DebtModel } from "../models/Debt.js";
 import { logActivity } from "../lib/activityLog.js";
+import { checkBusinessLimit } from "../lib/entitlements.js";
 
 /**
  * Businesses API: a founder's startups/side hustles. Every ledger entry
@@ -41,6 +42,13 @@ router.post("/", async (req: Request, res: Response) => {
   }
   if (currency !== undefined && !ALLOWED_CURRENCIES.includes(currency)) {
     return res.status(400).json({ error: "Unsupported currency." });
+  }
+
+  // 402 rather than 403: this isn't "you may never do this", it's "this
+  // costs money", which is what the client keys off to offer an upgrade.
+  const allowed = await checkBusinessLimit(userId);
+  if (!allowed.ok) {
+    return res.status(402).json({ error: allowed.reason, limit: allowed.limit, used: allowed.used });
   }
   const created = await BusinessModel.create({
     userId,
