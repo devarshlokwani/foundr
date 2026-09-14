@@ -488,7 +488,14 @@ export class FoundrLanding extends LitElement {
     .panel-row .pr-value { font-size: 18px; font-weight: 600; }
     .panel-row .pr-value.good { color: var(--sage, #8AAF9A); }
 
-    .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+    /* Two plans, centred. The columns are sized rather than stretched to
+       fill the row so the pair sits as a centred block: at three tiers a
+       full-width 1fr grid was right, but with two it left the whole third
+       column as dead space on the right. */
+    .plans {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 340px));
+      gap: 22px; align-items: start; justify-content: center;
+    }
     .plan { background: var(--surface, #FAFAF7); border-radius: var(--radius-card, 24px); padding: 30px; border: 0.5px solid var(--line, #E2DFD7); position: relative; }
     .plan.featured { border: 2px solid var(--forest, #2D4A3E); box-shadow: var(--shadow-card, 0 8px 28px -12px rgba(31,51,41,0.18)); }
     .plan-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--forest, #2D4A3E); color: #fff; font-size: 12px; font-weight: 500; padding: 5px 14px; border-radius: var(--radius-pill, 999px); }
@@ -607,7 +614,10 @@ export class FoundrLanding extends LitElement {
     @media (max-width: 880px) {
       .hero { grid-template-columns: 1fr; gap: 40px; padding: 40px 0 56px; }
       .preview { order: -1; }
-      .steps, .features, .plans { grid-template-columns: 1fr; }
+      .steps, .features { grid-template-columns: 1fr; }
+      /* Stacked, but still capped and centred rather than stretching one
+         card the full width of a tablet. */
+      .plans { grid-template-columns: minmax(0, 380px); }
       .split { grid-template-columns: 1fr; gap: 32px; }
       .plan.featured { order: -1; }
     }
